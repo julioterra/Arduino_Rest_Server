@@ -18,16 +18,7 @@ void parse_request (String request) {
                     
                 }
             }
-            for(int i = 0; i < 4; i++) {
-                if (request.startsWith(("/" + services_act_names[i]))) {
-                    String temp_string = request.substring(request.indexOf("/", 1)+1);
-                    Serial.print("[parse_request] matched act resource request: ");
-                    Serial.print(services_act_names[i]);
-                    Serial.print(" = ");
-                    Serial.println(temp_string);
-                    services_act_values[i] = convert_string2int(temp_string);
-                }
-            }
+            read_next_service(request);
         }
     } 
 }
@@ -35,29 +26,29 @@ void parse_request (String request) {
 void read_next_service(String request) {
     for(int i = 0; i < 4; i++) {
         if (request.startsWith("/")) {
-            request = request.substring(request.indexOf("/"));            
+            request = request.substring(request.indexOf("/")+1);            
         }
        if (request.startsWith(services_act_names[i])) {
             request = request.substring(request.indexOf("/")+1);
+
             int request_end_index = request.indexOf("/");
-            String service_val;
             if (request_end_index == -1) { 
               services_act_values[i] = convert_string2int(request.substring(0));
-              Serial.print("[parse_request] matched act resource request (last): ");
-              Serial.print(services_act_names[i]);
-              Serial.print(" = ");
-              Serial.println(services_act_values[i]);
             } else { 
-              services_act_values[i] = convert_string2int(request.substring(0,request_end_index)); 
-              request = request.substring(request.indexOf("/")+1);
-              Serial.print("[parse_request] matched act resource request: ");
-              Serial.print(services_act_names[i]);
-              Serial.print(" = ");
-              Serial.println(services_act_values[i]);
-              read_next_service(request);
-              break;
-            }
-        }  
+                // try to convert the current element of the url into a number
+                // if the conversion fails (-1) then read the method
+                int service_value = convert_string2int(request.substring(0,request_end_index));
+                if (service_value != -1) {
+                    services_act_values[i] = convert_string2int(request.substring(0,request_end_index)); 
+                    request = request.substring(request_end_index+1);
+                    read_next_service(request);
+                    break;
+                } else {
+                    read_next_service(request);
+                    break;
+                }
+           } 
+       }
     }
 }
 
@@ -67,18 +58,19 @@ int convert_string2int(String number) {
   int reverse_counter = number.length()-1;
   for(int i = 0; i < number.length(); i++) {
       char cur_char = number.charAt(i);
+      if (cur_char < 48 || cur_char > 57) return -1;
       int mult = 1;
       for(int j = 0; j < reverse_counter; j++) {
         mult = mult * 10;
       }
       if (mult == 0) mult = 1;
       return_num += (int(cur_char)-48) * mult; 
-  Serial.print("[convert_string2int] multiplier: ");
-  Serial.print(mult);
-  Serial.print(" current number: ");
-  Serial.print(int(cur_char)-48);
-  Serial.print(" updated return number: ");
-  Serial.println(return_num);
+      Serial.print("[convert_string2int] multiplier: ");
+      Serial.print(mult);
+      Serial.print(" current number: ");
+      Serial.print(int(cur_char)-48);
+      Serial.print(" updated return number: ");
+      Serial.println(return_num);
       reverse_counter--;
   }
   Serial.print("[convert_string2int] orig number: ");
