@@ -34,6 +34,9 @@ int char_count = 0;
 String request;
 int end_of_request_counter = 0;
 
+long last_reading = 0;
+long reading_interval = 30000;
+
 int services_sense_values [] = {0,0,0,0,0,0};
 String services_sense_names [] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
 
@@ -43,7 +46,7 @@ int services_sense_pins [] = {A0, A1, A2, A3, A4, A5};
 int services_act_values [] = {0,0,0,0};
 String services_act_names [] = {"output_1", "output_2", "output_3", "output_4"};
 
-int services_act_requested [] = {false,false,false,false,false,false,};
+int services_act_requested [] = {false,false,false,false};
 int services_act_pins [] = {3,5,6,9};
 
 
