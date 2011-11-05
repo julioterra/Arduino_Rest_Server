@@ -14,34 +14,34 @@ void parse_request (String request) {
 
         if (request.startsWith("/ ")) {
         } else {
-            Serial.println("[parse_request] matched resource request: ");
-            for(int i = 0; i < 6; i++) {
-                if (request.startsWith("/" + services_sense_names[i])) {
-                    Serial.print("[parse_request] matched sense resource request: ");
-                    Serial.println(services_sense_names[i]);
-                    
-                }
-            }
-            read_next_service(request);
+            String act_request = request;
+            read_next_service(request, 6, services_sense_names, services_sense_requested, services_sense_values);
+            read_next_service(request, 4, services_act_names, services_act_requested, services_act_values);
         }
     } 
 }
 
-void read_next_service(String request) {
-//    Serial.print("[read_next_service] receiving new request: ");
-//    Serial.println(request);
+void read_next_service(String request, 
+                       int service_num, 
+                       String* _services_act_names, 
+                       boolean* _services_act_requested, 
+                       int* _services_act_values) {
 
-   for(int i = 0; i < 4; i++) {
+    Serial.print("[read_next_service] receiving new request: ");
+    Serial.println(request);
+
+   for(int i = 0; i < service_num; i++) {
         if (request.startsWith("/")) {
             request = request.substring(request.indexOf("/")+1);            
         }
-       if (request.startsWith(services_act_names[i])) {
-            services_act_requested[i] = true;
-
-//            Serial.print("[read_next_service] reading matched request: ");
-//            Serial.println(request);
+       if (request.startsWith(_services_act_names[i])) {
+            _services_act_requested[i] = true;
 
             int end_index = request.indexOf("/");
+
+            Serial.print("[read_next_service] SET: ");
+            Serial.println(request);
+
             if (end_index == -1) return;
             request = request.substring(end_index+1);
 
@@ -53,32 +53,47 @@ void read_next_service(String request) {
 
             int request_end_index = request.indexOf("/");
             if (request_end_index == -1) { 
-                int service_value = convert_string2int(request.substring(0));
-                if (service_value != -1) services_act_values[i] = service_value;
-                else read_next_service(request);
-//                Serial.print("[read_next_service] last element request: ");
-//                Serial.println(request);
+                int service_value = convert_string2int(request);
+                if (service_value != -1) { 
+                   _services_act_values[i] = service_value; 
+                  Serial.print("[read_next_service] new value as SET ");
+                  Serial.println(request);
+                }
+                else {
+//                  Serial.print("[read_next_service] passing final variable to be read again ");
+//                  Serial.println(request);
+                  read_next_service(request, service_num, _services_act_names, _services_act_requested, _services_act_values);
+                }
 
             } else { 
                 // try to convert the current element of the url into a number
                 // if the conversion fails (-1) then read the method
                 int service_value = convert_string2int(request.substring(0,request_end_index));
                 if (service_value != -1) {
-                    services_act_values[i] = convert_string2int(request.substring(0,request_end_index)); 
-                    request = request.substring(request_end_index+1);
-//                    Serial.print("[read_next_service] number read, reduced request: ");
+                    _services_act_values[i] = service_value; 
+//                    Serial.print("[read_next_service] new number SET, reduced request: ");
 //                    Serial.println(request);
-                    read_next_service(request);
+                    request = request.substring(request_end_index+1);
+                    read_next_service(request, service_num, _services_act_names, _services_act_requested, _services_act_values);
                     break;
                 } else {
-//                    Serial.print("[read_next_service] not a number, full request: ");
+//                    Serial.print("[read_next_service] element not a number, send request: ");
 //                    Serial.println(request);
-                    read_next_service(request);
+                    read_next_service(request, service_num, _services_act_names, _services_act_requested, _services_act_values);
                     break;
                 }
            } 
-       }
+           break;
+       } 
     }
+
+    int end_index = request.indexOf("/");
+    if (end_index == -1) return;
+//    Serial.print("[read_next_service] reading did not match going to next item: ");
+//    Serial.println(request);
+    request = request.substring(end_index+1);
+    read_next_service(request, service_num, _services_act_names, _services_act_requested, _services_act_values);
+
 }
 
 int convert_string2int(String number) {
@@ -151,10 +166,12 @@ void send_response(Client client) {
     client.println("Sensor Resource States: <br />");
     // output the value of each analog input pin
     for(int i = 0; i < 6; i++) {
-        client.print(services_sense_names[i]);
-        client.print(" = ");
-        client.print(services_sense_values[i]);
-        client.println("<br />");
+        if (services_sense_requested[i]) {
+            client.print(services_sense_names[i]);
+            client.print(" = ");
+            client.print(services_sense_values[i]);
+            client.println("<br />");
+        }
     }
     client.println("<br />");
 
