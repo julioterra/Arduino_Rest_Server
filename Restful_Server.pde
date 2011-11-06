@@ -70,36 +70,44 @@ void loop()
   Client client = server.available();
   run();
   if (client) {
-    // an http request ends with a blank line
+
+    // CONNECTED TO CLIENT
     while (client.connected()) {
 
+      // DATA AVAILABLE FROM CLIENT: if there is a client connected then receive 
+      // their request and processes it.
       if (client.available()) {
-        char c = client.read();        
-        request_msg [request_msg_index] = c;
-        request_msg_index++;
-        
-        boolean end_of_request = false;
 
-        // once we received "\r\n\r\n" the http message has ended 
-        // start processing the request
-        if (!end_of_request && c == '\r' || c == '\n') {
+        // read data from client and save data into the request_msg array
+        char c = client.read();        
+        boolean process_request = false;
+        request_msg [request_msg_index] = c;
+        request_msg_index++;        
+
+
+        // REQUEST DONE: once we received "\r\n\r\n" the http message has ended 
+        // delete the last 4 chars from the message and set process_request to true
+        if (!process_request && c == '\r' || c == '\n') {
             end_of_request_counter++;  
-            if (end_of_request_counter >=4) {
-                end_of_request = true;
+            if (end_of_request_counter >= 4) {
+                process_request = true;
                 request_msg_index = 0;
                 int msg_end_index = index_of(' ', request_msg,(index_of(' ', request_msg, 0)+1));
                 if (msg_end_index != -1) delete_end(request_msg, msg_end_index + 1);
-
             }       
         }
-        if (end_of_request == true) {
+
+        // PROCESS REQUEST: if process_request is set to true then parse the request
+        if (process_request == true) {
           // send a standard http response header
-          parse_request_array(request_msg, request_msg_index);
+          parse_request(request_msg, request_msg_index);
           send_response(client);
+
           clear_request();
-          end_of_request = false;
+          process_request = false;
           end_of_request_counter = 0;
           request_msg_index = 0;
+
           break;          
         }
       }

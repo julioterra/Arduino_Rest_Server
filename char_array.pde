@@ -1,40 +1,4 @@
 
-void parse_request_array (char* _request_msg, int request_index) {
-    Serial.print("[parse_request_array] request: ");
-    Serial.println(_request_msg);
-    
-    for (int i = 0; i < 4; i ++) { services_act_requested [i] = false; }
-    for (int i = 0; i < 6; i ++) { services_sense_requested [i] = false; }
-    Serial.println("[parse_request_array] beginning to parse");
-
-    int match_index = match_string_end("GET ", _request_msg, request_index);
-    if (match_index != 1) {
-        Serial.print("[parse_request_array] request type: ");
-        Serial.println(_request_msg);
-
-        request_index = match_index + 1;
-        delete_start(_request_msg, request_index);
-        Serial.print("[parse_request_array] delete begining of message for processing: ");
-        Serial.println(_request_msg);
-
-        request_index = 0;
-
-        // check if request is a root request. If so, then update the
-        // requested arrays.
-        match_index = match_string_end("/ ", _request_msg, request_index);
-        if (match_index != -1) {
-            for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
-            for (int i = 0; i < 6; i ++) { services_sense_requested [i] = true; }
-        } 
-
-        // if the request was not a root request then read through each one
-        else if  (match_index == -1){
-            read_services_array(_request_msg, request_index,0);
-            read_services_array(_request_msg, request_index,1);
-        }
-    } 
-}
-
 void clear_request(){
     for (int i = 0; i < REQUEST_LENGTH; i++) { request_msg[i] = '\0'; } 
     request_msg_index = 0;   
@@ -51,12 +15,6 @@ int index_of(char _char_search, char* _char_source,  int start) {
           break;
       }
     }
-//    Serial.print("[index_of] returning index of char: ");
-//    Serial.print(_char_search);
-//    Serial.print(" array: ");
-//    Serial.print(_char_source);
-//    Serial.print(" location: ");
-//    Serial.println(location);
     return location;
 }
 
@@ -78,12 +36,6 @@ int match_string_end(char* _char_search, char* _char_source, int start) {
             break;
         }
     }
-//    Serial.print("[match_string_end] seaching for ");
-//    Serial.print(_char_search);
-//    Serial.print(" in: ");
-//    Serial.print(_char_source);
-//    Serial.print(" ends at: ");
-//    Serial.println(location);
     return location;  
 }
 
@@ -139,7 +91,7 @@ int return_number (char* _char_source, int start) {
         return return_number(_char_source, start);      
     } else { if (_char_source[end_index] == '/' || _char_source[end_index] == ' ') end_index -= 1; }
    
-    int new_number = convert_string2int_array(_char_source, start, end_index);
+    int new_number = convert_string2int(_char_source, start, end_index);
 
 //    Serial.print("[return_number] seaching for number in: ");
 //    Serial.print(_char_source);
@@ -169,7 +121,7 @@ int delete_start (char* _char_source, int start) {
     }
 }
 
-int convert_string2int_array(char* _char_source, int start_index, int end_index) {
+int convert_string2int(char* _char_source, int start_index, int end_index) {
   int return_num = 0;  
   int reverse_counter = (end_index - start_index);
 
@@ -182,7 +134,7 @@ int convert_string2int_array(char* _char_source, int start_index, int end_index)
       reverse_counter--;
   }
 
-//  Serial.print("[convert_string2int_array] start index: ");
+//  Serial.print("[convert_string2int] start index: ");
 //  Serial.print(start_index);
 //  Serial.print(" end ind: ");
 //  Serial.print(end_index);
