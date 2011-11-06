@@ -35,11 +35,11 @@ String request;
 int end_of_request_counter = 0;
 
 long last_reading = 0;
-long reading_interval = 30000;
+long reading_interval = 3000000;
 
 int services_sense_values [] = {0,0,0,0,0,0};
 String services_sense_names [] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
-
+char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
 boolean services_sense_requested [] = {false,false,false,false,false,false,};
 int services_sense_pins [] = {A0, A1, A2, A3, A4, A5};
 
@@ -49,6 +49,12 @@ String services_act_names [] = {"output_1", "output_2", "output_3", "output_4"};
 boolean services_act_requested [] = {false,false,false,false};
 int services_act_pins [] = {3,5,6,9};
 
+#define REQUEST_LENGTH 75
+
+char request_msg [REQUEST_LENGTH];
+int request_msg_index = 0;
+char wip_request_msg [25];
+int wip_request_msg_index = 0;
 
 void setup()
 {
@@ -80,9 +86,9 @@ void loop()
 
       if (client.available()) {
         char c = client.read();        
-        if (char_count != 0) request = request + c;
-        else request = c;
-        char_count ++;
+        request_msg [request_msg_index] = c;
+        request_msg_index++;
+        
         boolean end_of_request = false;
 
         // once we received "\r\n\r\n" the http message has ended 
@@ -91,16 +97,21 @@ void loop()
             end_of_request_counter++;  
             if (end_of_request_counter >=4) {
                 end_of_request = true;
-                request = request.substring(0, (request.length()-4));
+                request_msg_index = 0;
+                int msg_end_index = index_of(' ', request_msg,(index_of(' ', request_msg, 0)+1));
+                if (msg_end_index != -1) delete_end(request_msg, msg_end_index);
+
             }       
         }
         if (end_of_request == true) {
           // send a standard http response header
-          parse_request(request);
+          parse_request_array(request_msg, request_msg_index);
           send_response(client);
-
+          clear_request();
+          clear_wip_request();
           end_of_request = false;
           end_of_request_counter = 0;
+          request_msg_index = 0;
           char_count = 0;
           break;
           
