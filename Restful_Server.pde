@@ -24,37 +24,33 @@ byte mac[] = { 0x90, 0xA2, 0xDA, 0x00, 0x68, 0xF8 };
 byte ip[] = {192,168,2,200};
 byte gateway[] = {192,168,2,1};
 byte subnet[] = {255,255,0,0};
-
-// Initialize the Ethernet server library
-// with the IP address and port you want to use 
-// (port 80 is default for HTTP):
 Server server(7999);
 
-int char_count = 0;
-String request;
-int end_of_request_counter = 0;
-
-long last_reading = 0;
-long reading_interval = 3000000;
-
-int services_sense_values [] = {0,0,0,0,0,0};
-String services_sense_names [] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
-char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
-boolean services_sense_requested [] = {false,false,false,false,false,false,};
 int services_sense_pins [] = {A0, A1, A2, A3, A4, A5};
-
-int services_act_values [] = {0,0,0,0};
-String services_act_names [] = {"output_1", "output_2", "output_3", "output_4"};
-
-boolean services_act_requested [] = {false,false,false,false};
 int services_act_pins [] = {3,5,6,9};
 
-#define REQUEST_LENGTH 75
+/**********************************************************
+ ** Variables that handle the restful message processing **/
+#define REQUEST_LENGTH 100
+
+char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
+int services_sense_values [] = {0,0,0,0,0,0};
+boolean services_sense_requested [] = {false,false,false,false,false,false,};
+
+char services_act_names_arrays [][15] = {"output_1", "output_2", "output_3", "output_4"};
+int services_act_values [] = {0,0,0,0};
+boolean services_act_requested [] = {false,false,false,false};
 
 char request_msg [REQUEST_LENGTH];
 int request_msg_index = 0;
-char wip_request_msg [25];
-int wip_request_msg_index = 0;
+
+long last_reading = 0;
+long reading_interval = 3000000;
+int end_of_request_counter = 0;
+
+/** Variables that handle the restful message processing **
+ **********************************************************/
+
 
 void setup()
 {
@@ -63,16 +59,9 @@ void setup()
   server.begin();
   Serial.begin(9600);
   
-  for(int i = 0; i < 6; i++) {
-      pinMode(services_sense_pins[i], INPUT);
-  }
-
-  for(int i = 0; i < 4; i++) {
-      pinMode(services_act_pins[i], OUTPUT);
-  }
+  for(int i = 0; i < 6; i++) { pinMode(services_sense_pins[i], INPUT); }
+  for(int i = 0; i < 4; i++) { pinMode(services_act_pins[i], OUTPUT); }
   
-  char_count = 0;
-  request = String(" ");
 }
 
 void loop()
@@ -99,7 +88,7 @@ void loop()
                 end_of_request = true;
                 request_msg_index = 0;
                 int msg_end_index = index_of(' ', request_msg,(index_of(' ', request_msg, 0)+1));
-                if (msg_end_index != -1) delete_end(request_msg, msg_end_index);
+                if (msg_end_index != -1) delete_end(request_msg, msg_end_index + 1);
 
             }       
         }
@@ -108,13 +97,10 @@ void loop()
           parse_request_array(request_msg, request_msg_index);
           send_response(client);
           clear_request();
-          clear_wip_request();
           end_of_request = false;
           end_of_request_counter = 0;
           request_msg_index = 0;
-          char_count = 0;
-          break;
-          
+          break;          
         }
       }
     }

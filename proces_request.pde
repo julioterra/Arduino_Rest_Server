@@ -47,11 +47,11 @@ void send_response(Client client) {
     // output the value of each analog input pin
     for(int i = 0; i < 6; i++) {
         if (services_sense_requested[i]) {
-            client.print(services_sense_names[i]);
+            client.print(services_sense_names_arrays[i]);
             client.print(" = ");
             client.print(services_sense_values[i]);
             client.println("<br />");
-            Serial.print(services_sense_names[i]);
+            Serial.print(services_sense_names_arrays[i]);
             Serial.print(" = ");
             Serial.print(services_sense_values[i]);
             Serial.println("<br />");
@@ -64,10 +64,14 @@ void send_response(Client client) {
     // output the value of each analog input pin
     for(int i = 0; i < 4; i++) {
         if (services_act_requested[i]) {
-            client.print(services_act_names[i]);
+            client.print(services_act_names_arrays[i]);
             client.print(" = ");
             client.print(services_act_values[i]);
             client.println("<br />");
+            Serial.print(services_act_names_arrays[i]);
+            Serial.print(" = ");
+            Serial.print(services_act_values[i]);
+            Serial.println("<br />");
         }
     }
 
