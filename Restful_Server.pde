@@ -32,12 +32,14 @@ int services_act_pins [] = {3,5,6,9};
 /**********************************************************
  ** Variables that handle the restful message processing **/
 #define REQUEST_LENGTH 75
+#define ELEMENT_DIV_COUNT  2
 
+char element_div[] = {'/',' '};
 char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
+char services_act_names_arrays [][15] = {"output_1", "output_2", "output_3", "output_4"};
+
 int services_sense_values [] = {0,0,0,0,0,0};
 boolean services_sense_requested [] = {false,false,false,false,false,false,};
-
-char services_act_names_arrays [][15] = {"output_1", "output_2", "output_3", "output_4"};
 int services_act_values [] = {0,0,0,0};
 boolean services_act_requested [] = {false,false,false,false};
 
@@ -83,9 +85,9 @@ void loop()
         request_msg [request_msg_index] = c;
         request_msg_index++;        
 
-
         // REQUEST DONE: once we received "\r\n\r\n" the http message has ended 
         // delete the last 4 chars from the message and set process_request to true
+//** MAKE END OF MESSAGE CUSTOMIZABLE - use find start method with full sequence of chars
         if (!process_request && c == '\r' || c == '\n') {
             end_of_request_counter++;  
             if (end_of_request_counter >= 4) {
@@ -94,7 +96,9 @@ void loop()
                 int msg_end_index = index_of(' ', request_msg,(index_of(' ', request_msg, 0)+1));
                 if (msg_end_index != -1) delete_end(request_msg, msg_end_index + 1);
             }       
-        }
+        } else {
+            end_of_request_counter=0;  	
+		}
 
         // PROCESS REQUEST: if process_request is set to true then parse the request
         if (process_request == true) {

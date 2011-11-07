@@ -92,9 +92,13 @@ void read_services(char* _request_msg, int _request_index, int service_types) {
                 // FOUND SERVICES IN REQUESTS: when cur_index returns a number greater then
                 // 1 this means that a service name has been found in the request.
                 if (cur_index != -1) {
+	
                     // POTENTIAL STATE DATA AVAILABLE: check if the next element in the
-                    // request is a number to set the service/resource state
-                    int new_number = return_number(_request_msg, cur_index + 1);
+                    // request is a number to set this service's/resource's current state.
+					// First move the cur_index forward by one element, so that it points to 
+					// the first char of the new element (not the last char of the previous one).
+					cur_index += 1;
+                    int new_number = return_number(_request_msg, cur_index);
                     if (new_number != -1) {
 
                         // NUMBER FOUND: a number if available, so if this is an  
