@@ -1,5 +1,4 @@
 void run() {
-  
   if (millis() - last_reading > reading_interval) {
 //      Serial.println("[run] reading data from sensors and writing to actuators");
       last_reading = millis();
@@ -47,6 +46,11 @@ void send_response(Client client) {
     }
 }
 
+// *************** //
+// create API here 
+	// consider adding:
+		// -individual array accessor and getters
+		// -callback methods for requests to set and get data 
 void write_data() {
     for(int i = 0; i < 4; i++) {
         if (services_act_pins[i] == 3 || services_act_pins[i] == 5 || 

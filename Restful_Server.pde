@@ -1,17 +1,16 @@
 /*
-  Web  Server
+  Restful Request Processor
  
- A simple web server that shows the value of the analog input pins.
- using an Arduino Wiznet Ethernet shield. 
+ This sketch is the first prototype of a restful request processor
+ that takes incoming requests that are structured like restfull requests
+ and then responds with the appropriate information. The data and processor
+ are linked through simple callback methods and accessible array that hold
+ the state for all services/resources.
  
- Circuit:
- * Ethernet shield attached to pins 10, 11, 12, 13
- * Analog inputs attached to pins A0 through A5 (optional)
- 
- created 18 Dec 2009
- by David A. Mellis
- modified 4 Sep 2010
- by Tom Igoe
+ built from templated created by 
+ on 18 Dec 2009 by David A. Mellis and
+ modified 4 Sep 2010 by Tom Igoe
+ modified 6 Nov 2011 by Julio Terra
  
  */
 
@@ -69,7 +68,7 @@ void loop()
 {
   // listen for incoming clients
   Client client = server.available();
-  run();
+  // run();
   if (client) {
 
     // CONNECTED TO CLIENT
@@ -87,31 +86,29 @@ void loop()
 
         // REQUEST DONE: once we received "\r\n\r\n" the http message has ended 
         // delete the last 4 chars from the message and set process_request to true
+
 //** MAKE END OF MESSAGE CUSTOMIZABLE - use find start method with full sequence of chars
         if (!process_request && c == '\r' || c == '\n') {
             end_of_request_counter++;  
             if (end_of_request_counter >= 4) {
                 process_request = true;
                 request_msg_index = 0;
-                int msg_end_index = index_of(' ', request_msg,(index_of(' ', request_msg, 0)+1));
+				int msg_end_index = index_of(' ', request_msg, 0) + 1;
+                msg_end_index = index_of(' ', request_msg, msg_end_index);
                 if (msg_end_index != -1) slice(request_msg, 0, msg_end_index);
             }       
         } else {
-            end_of_request_counter=0;  	
+            end_of_request_counter = 0;  	
 		}
 
         // PROCESS REQUEST: if process_request is set to true then parse the request
-        if (process_request == true) {
-          // send a standard http response header
-          parse_request(request_msg, request_msg_index);
-          send_response(client);
-
-          clear_request();
-          process_request = false;
-          end_of_request_counter = 0;
-          request_msg_index = 0;
-
-          break;          
+		if (process_request) {
+			// send a standard http response header
+			parse_request(request_msg);
+			send_response(client);
+			// CONSIDER NEW METHOD: save_new_state();
+			prepare_for_next_client();
+			break;          
         }
       }
     }
@@ -120,4 +117,12 @@ void loop()
     // close the connection:
     client.stop();
   }
+}
+
+
+
+void prepare_for_next_client() {
+    clear_request();
+    end_of_request_counter = 0;
+    request_msg_index = 0;	
 }
