@@ -31,8 +31,8 @@ int services_act_pins [] = {3,5,6,9};
 
 /**********************************************************
  ** Variables that handle the restful message processing **/
-#define REQUEST_LENGTH 75
-#define ELEMENT_DIV_COUNT  2
+#define REQUEST_LENGTH 		75
+#define ELEMENT_DIV_COUNT  	2
 
 char element_div[] = {'/',' '};
 char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
@@ -94,7 +94,7 @@ void loop()
                 process_request = true;
                 request_msg_index = 0;
                 int msg_end_index = index_of(' ', request_msg,(index_of(' ', request_msg, 0)+1));
-                if (msg_end_index != -1) delete_end(request_msg, msg_end_index + 1);
+                if (msg_end_index != -1) slice(request_msg, 0, msg_end_index);
             }       
         } else {
             end_of_request_counter=0;  	
