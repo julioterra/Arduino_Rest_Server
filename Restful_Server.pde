@@ -33,6 +33,7 @@ int services_act_pins [] = {3,5,6,9};
 #define REQUEST_LENGTH 		75
 #define ELEMENT_DIV_COUNT  	2
 
+char req_end_pattern[] = {"\r\n"};
 char element_div[] = {'/',' '};
 char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
 char services_act_names_arrays [][15] = {"output_1", "output_2", "output_3", "output_4"};
@@ -48,6 +49,8 @@ int request_msg_index = 0;
 long last_reading = 0;
 long reading_interval = 3000000;
 int end_of_request_counter = 0;
+
+boolean process_request = false;
 
 /** Variables that handle the restful message processing **
  **********************************************************/
@@ -80,7 +83,7 @@ void loop()
 
         // read data from client and save data into the request_msg array
         char c = client.read();        
-        boolean process_request = false;
+        process_request = false;
         request_msg [request_msg_index] = c;
         request_msg_index++;        
 
@@ -92,7 +95,6 @@ void loop()
             end_of_request_counter++;  
             if (end_of_request_counter >= 4) {
                 process_request = true;
-                request_msg_index = 0;
 				int msg_end_index = index_of(' ', request_msg, 0) + 1;
                 msg_end_index = index_of(' ', request_msg, msg_end_index);
                 if (msg_end_index != -1) slice(request_msg, 0, msg_end_index);
@@ -100,6 +102,26 @@ void loop()
         } else {
             end_of_request_counter = 0;  	
 		}
+
+		// START: NEW CODE / NEW CODE / NEW CODE
+		// only check if the request matches the pattern when the last letter from the pattern is matched
+		// int req_end_pattern_length = strlen(req_end_pattern);
+		//         if (!process_request && c == req_end_pattern[req_end_pattern_length-1]) {
+		//             process_request = true;
+		// 	int msg_end_index = -1;
+		// 	
+		// 	// check if we found a sequence of chars that match the end_pattern
+		// 	msg_end_index = match_string_end(' ', request_msg, request_msg_index-req_end_pattern_length);
+		//             if (msg_end_index != -1) {
+		// 		// remove request end pattern from the request
+		// 		slice(request_msg, 0, msg_end_index);
+		// 		// remove any content after the second space from the request
+		// 	            msg_end_index = index_of(' ', request_msg, index_of(' ', request_msg, 0) );
+		// 	            if (msg_end_index != -1) slice(request_msg, 0, msg_end_index);
+		// 	}
+		// }
+		// 
+		// END: NEW CODE / NEW CODE / NEW CODE
 
         // PROCESS REQUEST: if process_request is set to true then parse the request
 		if (process_request) {
