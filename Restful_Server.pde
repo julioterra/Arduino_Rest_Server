@@ -35,10 +35,12 @@ int services_act_pins [] = {3,5,6,9};
 // #define REQUEST_MAX_LENGTH 		75
 // #define ELEMENT_DIV_COUNT  		2
 
+#define END_SEQ_LENGTH	2
 char req_end_pattern[] = {"\r\n"};
 char element_div[] = {'/',' '};
 char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
 char services_act_names_arrays [][15] = {"output_1", "output_2", "output_3", "output_4"};
+int services[] = {GET_SERVICES, UPDATE_SERVICES};
 
 int services_sense_values [] = {0,0,0,0,0,0};
 boolean services_sense_requested [] = {false,false,false,false,false,false,};
@@ -48,24 +50,28 @@ boolean services_act_requested [] = {false,false,false,false};
 char request_msg [REQUEST_MAX_LENGTH];
 int request_msg_index = 0;
 
+Message request;
+
 long last_reading = 0;
 long reading_interval = 3000000;
-int end_of_request_counter = 0;
 
-boolean process_request = false;
+// boolean process_request = false;
+int process_state;
 
 /** Variables that handle the restful message processing **
  **********************************************************/
 
 void setup()
 {
-  // start the Ethernet connection and the server:
-  Ethernet.begin(mac, ip, gateway, subnet);
-  server.begin();
-  Serial.begin(9600);
-  
-  for(int i = 0; i < 6; i++) { pinMode(services_sense_pins[i], INPUT); }
-  for(int i = 0; i < 4; i++) { pinMode(services_act_pins[i], OUTPUT); }
+	// start the Ethernet connection and the server:
+	Ethernet.begin(mac, ip, gateway, subnet);
+	server.begin();
+	Serial.begin(9600);
+	for(int i = 0; i < 6; i++) { pinMode(services_sense_pins[i], INPUT); }
+	for(int i = 0; i < 4; i++) { pinMode(services_act_pins[i], OUTPUT); }
+
+	process_state = -1;
+	request = Message();
   
 }
 
@@ -75,27 +81,30 @@ void loop()
   Client client = server.available();
   // run();
   if (client) {
-
+	new_client();
     // CONNECTED TO CLIENT
     while (client.connected()) {
-
+		read_data();
       // DATA AVAILABLE FROM CLIENT: if there is a client connected then receive 
       // their request and processes it.
       if (client.available()) {
-
         // read data from client and save data into the request_msg array
-        char c = client.read();        
-		process_request = client_request(c);
-		if (process_request) {
-			// send a standard http response header
-			parse_request(request_msg);
-			send_response(client);
-			// CONSIDER NEW METHOD: save_new_state();
-			prepare_for_next_client();
-			break;          
-        }
+        // char c = client.read();        
+		if (handle_requests(client.read(), client) == false) {
+			write_data();
+			break;
+		}
+		// process_request = server_request(c);
+		// if (process_request) {
+		// 	// send a standard http response header
+		// 	parse_request();
+		// 	process_request();
+		//  send_response(client);
+		// 	prepare_for_next_client();
+		// 	break;          
+		//         }
 		/* END: INSIDE THE NEW LIBRARY */
-      }
+		}
     }
     // give the web browser time to receive the data
     delay(1);
@@ -104,35 +113,67 @@ void loop()
   }
 }
 
+void new_client() {
+	if (process_state == -1) { 
+		process_state = 0;
+		Serial.print("[new_client] state change to process_state: "); Serial.println(process_state);	
+	}
+}
 
-boolean client_request(char new_char) {
-	boolean _process_request = false;
-    request_msg [request_msg_index] = new_char;
-    request_msg_index++;        
+boolean handle_requests(char _c, Client _client) {
+	int starting_state = process_state;
+	server_request(_c);
+	parse_request();
+	process();
+	send_response(_client);
+	prepare_for_next_client();
+	if(process_state == -1) return false;
+	else return true;
+}
 
-	// CHECK IF REQUEST IS DONE: if done set process_request to true
-	int req_end_pattern_length = strlen(req_end_pattern);
-    if (!_process_request && new_char == req_end_pattern[req_end_pattern_length-1]) {
-        _process_request = true;
+void respond_to_request(Client _client) {
+	process();
+	send_response(_client);
+	prepare_for_next_client();	
+}
+
+boolean server_request(char new_char) {
+	if (process_state == 0) {
+
+		boolean _process_request = false;
+		request.add(new_char);
 		
-		// check if we found a sequence of chars that match the end_pattern
-		int msg_end_index = request_match_string(req_end_pattern, request_msg, request_msg_index-req_end_pattern_length);
-        if (msg_end_index != -1) {
-			// remove request end pattern from the request
-			request_slice(request_msg, 0, request_msg_index-req_end_pattern_length);
-			// remove any content after the second space from the request
-			msg_end_index = request_find(' ', request_msg, check_start(request_msg, 0));
-            msg_end_index = request_find(' ', request_msg, check_start(request_msg, msg_end_index));
-            if (msg_end_index != -1) { 
-				request_slice(request_msg, 0, msg_end_index); 
+		// Serial.print("[server_request] ADD: "); Serial.print(new_char);
+		// Serial.print(" process_state "); Serial.println(process_state);
+
+	    if (!_process_request && new_char == req_end_pattern[END_SEQ_LENGTH-1]) {
+			_process_request = true;
+		
+			// check if we found a sequence of chars that match the end_pattern
+			int msg_end_index = request.match_string(req_end_pattern, request.length-END_SEQ_LENGTH);
+	        if (msg_end_index != NO_MATCH) {
+				process_state = 1;
+				// remove request end pattern from the request
+				request.slice(0, request.length-END_SEQ_LENGTH);
+				msg_end_index = request.find(' ', 0) + 1;
+	            msg_end_index = request.find(' ', msg_end_index);
+	            if (msg_end_index != NO_MATCH) { 
+					request.slice(0, msg_end_index); 
+				}
+
+				Serial.print("[server_request] END: "); Serial.print(new_char);
+				Serial.print(" state change to process_state: "); Serial.println(process_state);		
 			}
 		}
+
+		return _process_request;
 	}
-	return _process_request;
 }
 
 void prepare_for_next_client() {
-    request_clear();
-    end_of_request_counter = 0;
-    request_msg_index = 0;	
+	if (process_state == 4) {
+		process_state = -1;
+		request.clear();
+		Serial.print("[prepare_for_next_client] state change to process_state: "); Serial.println(process_state);	
+	}
 }

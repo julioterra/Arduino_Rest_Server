@@ -28,6 +28,7 @@ void Message::slice (int _start_index, int _end_index) {
 		else 
 			{ msg[i] = '\0'; }
     }
+	length = strlen(msg);
 }
 
 /* Message::clear()

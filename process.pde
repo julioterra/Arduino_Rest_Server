@@ -1,145 +1,124 @@
-void parse_request (char* _request_msg) {
-    Serial.print("[parse_request] request: ");
-    Serial.println(_request_msg);
-    int request_index = 0;
+void parse_request () {
+	if (process_state == 1) {
+	    int root_index = 0;
+	    for (int i = 0; i < 4; i ++) { services_act_requested [i] = false; }
+	    for (int i = 0; i < 6; i ++) { services_sense_requested [i] = false; }
 
-    for (int i = 0; i < 4; i ++) { services_act_requested [i] = false; }
-    for (int i = 0; i < 6; i ++) { services_sense_requested [i] = false; }
-    Serial.println("[parse_request] beginning to parse");
+	    Serial.println("[parse_request] parsing request.msg"); Serial.println(request.msg);
 
-    int match_index = request_match_string("GET ", _request_msg, request_index);
-    if (match_index != -1) {
+	    int match_index = request.match_string("GET ", root_index);
+	    if (match_index != NO_MATCH) {
 
-        request_index = match_index + 1;
-		request_slice(_request_msg, request_index, strlen(_request_msg));
-        Serial.print("[parse_request] request type GET confirmed, now deleted from message: $");
-        Serial.println(_request_msg);
+	        // request_index = match_index + 1;
+			request.slice((match_index + 1), request.length);
+		    // Serial.print("[parse_request] request type GET confirmed, now deleted from message: '");
+		    // Serial.print(request.msg); Serial.println("'");
 
-        request_index = 0;
-
-        // check if request is a root request. If so, then update the
-        // requested arrays.
-        match_index = request_match_string("/ ", _request_msg, request_index);
-        if (match_index != -1 || strlen(_request_msg) <= 1) {
-	        Serial.println("[parse_request] request contains ROOT request ");
-            for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
-            for (int i = 0; i < 6; i ++) { services_sense_requested [i] = true; }
-        } 
-
-        // if the request was not a root request then read through each one
-        else if (match_index == -1){
-	        Serial.println("[parse_request] request not root request: ");
-	        match_index = request_match_string("/all", _request_msg, request_index);
-			if (match_index != -1) {
-		        Serial.println("[parse_request] request contains ALL request ");
+	        // ROOT REQUEST: check for root request. 
+	        // If so, then update requested array to true.
+	        match_index = request.match_string("/ ", root_index);
+	        if (match_index != NO_MATCH || request.length <= 1) {
+		        Serial.println("[parse_request] request contains ROOT request ");
 	            for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
 	            for (int i = 0; i < 6; i ++) { services_sense_requested [i] = true; }
-			}
-            read_services(_request_msg, request_index,0);
-            read_services(_request_msg, request_index,1);
-
-        }
-    } 
+	        } 
+	        // if the request was not a root request then read through each one
+	        else if (match_index == NO_MATCH){
+		        // Serial.println("[parse_request] request not root request: ");
+		        match_index = request.match_string("/all", root_index);
+				if (match_index != NO_MATCH) {
+			        // Serial.println("[parse_request] request contains ALL request ");
+		            for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
+		            for (int i = 0; i < 6; i ++) { services_sense_requested [i] = true; }
+				}
+	            read_services();
+	        }
+	    } 
+		process_state = 2;
+		Serial.print("[parse_request] END: process_state "); Serial.println(process_state);		
+	}
 }
 
 
-void read_services(char* _request_msg, int _request_index, int service_types) {        
+void read_services() {        
                            
-    // loop through each element in the request
-    int request_length = strlen(_request_msg);
-    Serial.print("[read_services] NEW REQUEST length: ");
-    Serial.print(request_length);
-    Serial.print(" request: ");
-    Serial.println(_request_msg);
-
-
-    for(boolean reading = true; reading == true; ) {
-        // STOP RUNNING: if the request index is equal to or greater then the  
-		// length of the request then stop running
-        if (_request_index >= request_length || _request_index == -1) {
-			reading = false;
-			break;
-
-        // START::PROCESS THIS ELEMENT: process the current element
-        } else {
-		   // find where the next element ends assuming it starts at the 
-		   // 
-		   int end_index = next_element(_request_msg, _request_index);
-
-	       Serial.print("[read_services] PROCESSING ITEM AT "); Serial.print(_request_index);
-	       Serial.print(" TO ");Serial.println(end_index);
-
-            if (end_index == -1) {
-				end_index = request_length - 1;
-				reading = false;
-				Serial.print("[read_services] LAST ITEM: "); Serial.print(_request_index);
-				Serial.print(" to "); Serial.println(end_index);
-            }
-            
-            // NUMBER OF SERVICES: confirm number of services based on service
-            // type being processed
-            int services = 0;
-            if (service_types == 0) services = 6;
-            else if (service_types == 1) services = 4;
-            
-            // CHECK EACH SERVICE: loop through each service and process any
-            // service/resource name matches discovered
-            for (int i = 0; i < services; i++) {
-                int match_index = -1;
-                
-                // FIND SERVICES IN REQUESTS: check an element of the request msg to the available
-                // service names on this arduino. If match found then set requested array to true.
-				_request_index = check_start(_request_msg, _request_index);
-                if (service_types == 0) {
-                    match_index = request_match_string(services_sense_names_arrays[i], _request_msg, _request_index);
-                    if (match_index != -1) {
-						services_sense_requested[i] = true;
-						Serial.print("[read_services] MATCH found: ");
-						Serial.println(services_sense_names_arrays[i]);
-						end_index = match_index + 1;
-					}
-                } else if (service_types == 1) {
-                    match_index = request_match_string(services_act_names_arrays[i], _request_msg, _request_index);
-                    if (match_index != -1) {
-						services_act_requested[i] = true;
-						Serial.print("[read_services] MATCH found: ");
-						Serial.println(services_act_names_arrays[i]);
-						end_index = match_index + 1;
-					}
-                }
-
-                // FOUND SERVICES IN REQUESTS: when cur_index returns a number greater then
-                // 1 this means that a service name has been found in the request.
-                if (match_index != -1) {
+    // Serial.print("[read_services] New request received. Length: "); Serial.print(request.length);
+    // Serial.print(" Request: "); Serial.println(request.msg);
 	
-                    // POTENTIAL STATE DATA AVAILABLE: check if the next element in the
-                    // request is a number to set this service's/resource's current state.
-					// First move the cur_index forward by one element, so that it points to 
-					// the first char of the new element (not the last char of the previous one).
-					// int match_index = end_index + 1;
-                    int new_number = check_for_state_msg(_request_msg, end_index);
-                    if (new_number != -1) {
-			           Serial.print("[read_services] STATE NUMBER found: ");
-			           Serial.println(new_number);
+	int element_end_pos = 0;
+	boolean processing_request = true;
+	
+    while(processing_request == true) {
+		// find where the next element ends assuming it starts at the 
+		int element_start_pos = element_end_pos;
+		element_end_pos = next_element(element_start_pos);
 
-                        // NUMBER FOUND: a number if available, so if this is an  
-                        // actuator service then set the current value.
-                        if (service_types == 1) { services_act_values[i] = new_number; }
- 
+		// Serial.print("[read_services] processing element from position "); Serial.print(element_start_pos);
+		// Serial.print(" to "); Serial.println(element_end_pos);
 
-                        // Check if more elements exist in the request
-                        end_index = next_element(_request_msg, match_index);
+		if (element_end_pos == NO_MATCH) {
+			element_end_pos = request.length - 1;
+			processing_request = false;
+		}
 
-                    }  
-                    break;
-                } 
-            } // END:: SERVICES LOOP
-
-           Serial.print("[read_services] UPDATING INDEX from ");
-           Serial.print(_request_index);
-            _request_index = end_index;
-           Serial.print(" to ");
-           Serial.println(_request_index);
-        } // END::PROCESS THIS ELEMENT
+		// Loop through services of the two different types
+		int match_index;
+		for (int j = 0; j < SERVICE_TYPES; j++) {
+			// Loop through each service of current service type
+			for (int i = 0; i < services[j]; i++) {
+				if ((match_index = service_match(j, element_start_pos, i))  != NO_MATCH) {				
+					element_end_pos = match_index;					    
+					if ((match_index = state_match(j, element_end_pos, i)) != NO_MATCH) {
+						element_end_pos = match_index;					 
+					}
+				} 
+			} 
+		}
     }    
+}
+
+int service_match(int _service_type, int _start_pos, int _service_array_index) {
+	int match_index = NO_MATCH;
+    
+    // FIND SERVICES IN REQUESTS: check an element of the request msg to the available
+    // service names on this arduino. If match found then set requested array to true.
+	_start_pos = check_start(_start_pos);
+    if (_service_type == 0) {
+        match_index = request.match_string(services_sense_names_arrays[_service_array_index], _start_pos);
+        if (match_index != NO_MATCH) services_sense_requested[_service_array_index] = true;
+    } else if (_service_type == 1) {
+        match_index = request.match_string(services_act_names_arrays[_service_array_index], _start_pos);
+        if (match_index != NO_MATCH) services_act_requested[_service_array_index] = true;
+    }	
+
+	// if match was found look for a state set message (in number format)
+	if (match_index != NO_MATCH) { 
+		match_index += 1; 
+		int temp_index = state_match(_service_type, match_index, _service_array_index);
+		if (temp_index != NO_MATCH) {
+			match_index = temp_index;					 
+		}
+	}	
+	return match_index;
+}
+
+// state_match: check if the next element in the
+// request is a number to set this service's/resource's current state.
+int state_match(int _service_type, int _start_pos, int _service_array_index) {
+	// First move the cur_index forward by one element, so that it points to 
+	// the first char of the new element (not the last char of the previous one).
+	// int match_index = element_end_pos + 1;
+	int new_number = check_for_state_msg(_start_pos);
+	if (new_number != NO_MATCH) {
+
+		// NUMBER FOUND: a number if available, so if this is an  
+		// actuator service then set the current value.
+		if (_service_type == 1) { 
+			services_act_values[_service_array_index] = new_number; 
+			Serial.print("[state_match] service state found and saved: "); Serial.println(new_number);
+		}
+		// Check if more elements exist in the request
+		new_number = next_element(_start_pos);
+	}  
+	return new_number;
 }
