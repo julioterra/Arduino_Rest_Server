@@ -16,7 +16,6 @@ public:
 	int find(char, int);
 	int match_string(char*, int);
 	int to_i(int, int);
-
 };
 
 #endif

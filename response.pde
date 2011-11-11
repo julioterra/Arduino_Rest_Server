@@ -1,12 +1,3 @@
-void run() {
-  if (millis() - last_reading > reading_interval) {
-//      Serial.println("[run] reading data from sensors and writing to actuators");
-      last_reading = millis();
-      read_data();
-      write_data();
-  }
-}
-
 void process() {
 	if (process_state == 2) {
 		if (!GET_CALLBACK && !UPDATE_CALLBACK) {

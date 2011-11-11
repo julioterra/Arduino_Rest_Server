@@ -7,29 +7,21 @@
  *	otherwise, it returns NO_MATCH.
  */
 int next_element(int _start) {
-	int end_index = NO_MATCH;
-
 	_start = check_start(_start);
 	if (_start >= request.length) return NO_MATCH;
 
-	// loop through each element of element_div array to
-	// check where is the nearest element div, such as '/' or ' '
-	 for (int i = 0; i < ELEMENT_DIV_COUNT; i ++ ) { 
-		// check whether the current element_div exists in the request
-		// if an element_div was found, and one was already found
-		// then set the end_index to the nearest div
-		// otherwise if an element_div was found and no other one
-		// was already found then set end_index to current div location.
-		int temp_index = request.find(element_div[i], _start);
-		if (temp_index != NO_MATCH && end_index != NO_MATCH) {
-		    if (temp_index < end_index) { 
-				end_index = temp_index; 
-			}
-		} else if (temp_index != NO_MATCH && end_index == NO_MATCH) {
-			end_index = temp_index;
+	// loop through each element of element_div array to check for element end
+	int match_index = NO_MATCH;
+	for (int i = 0; i < ELEMENT_DIV_COUNT; i ++ ) { 
+		int new_index = request.find(element_div[i], _start);
+		// if no previous match, or current match index is smaller, then update match_index
+		if (new_index != NO_MATCH) {
+			if (match_index == NO_MATCH || (new_index < match_index)) {
+				match_index = new_index;	
+			} 
 		} 		 
 	}
-	return end_index;
+	return match_index;
 }
 
 /* check_for_state_msg(char*, int)
@@ -41,14 +33,14 @@ int check_for_state_msg(int _start) {
 	_start = check_start(_start);
 	if (_start >= request.length) return NO_MATCH;
     
-	int end_index = next_element(_start);
-    if (end_index == NO_MATCH) { 
-		end_index = request.length - 1;
-    } else if (request.msg[end_index] == '/' || request.msg[end_index] == ' ') {
-		end_index -= 1; 
+	int match_index = next_element(_start);
+    if (match_index == NO_MATCH) { 
+		match_index = request.length - 1;
+    } else if (request.msg[match_index] == '/' || request.msg[match_index] == ' ') {
+		match_index -= 1; 
 	}
    
-	int new_num = request.to_i(_start, end_index);
+	int new_num = request.to_i(_start, match_index);
     return new_num;
 }
 

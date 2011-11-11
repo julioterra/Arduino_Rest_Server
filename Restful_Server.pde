@@ -32,31 +32,24 @@ int services_act_pins [] = {3,5,6,9};
 
 /**********************************************************
  ** Variables that handle the restful message processing **/
-// #define REQUEST_MAX_LENGTH 		75
-// #define ELEMENT_DIV_COUNT  		2
 
+/* CONSTANTS TO BE SET BY USERS */
 #define END_SEQ_LENGTH	2
 char req_end_pattern[] = {"\r\n"};
 char element_div[] = {'/',' '};
 char services_sense_names_arrays [][15] = {"analog_1", "analog_2", "analog_3", "analog_4", "analog_5", "analog_6"};
 char services_act_names_arrays [][15] = {"output_1", "output_2", "output_3", "output_4"};
+
+
+/* VARIABLES TO BE USED BY MICROPROCESSOR */
 int services[] = {GET_SERVICES, UPDATE_SERVICES};
-
 int services_sense_values [] = {0,0,0,0,0,0};
-boolean services_sense_requested [] = {false,false,false,false,false,false,};
 int services_act_values [] = {0,0,0,0};
+boolean services_sense_requested [] = {false,false,false,false,false,false,};
 boolean services_act_requested [] = {false,false,false,false};
-
-char request_msg [REQUEST_MAX_LENGTH];
-int request_msg_index = 0;
-
 Message request;
-
-long last_reading = 0;
-long reading_interval = 3000000;
-
-// boolean process_request = false;
 int process_state;
+
 
 /** Variables that handle the restful message processing **
  **********************************************************/
@@ -75,35 +68,31 @@ void setup()
   
 }
 
+long requested_started = 0;
+int request_wait_time = 15 * 1000;
+
 void loop()
 {
   // listen for incoming clients
   Client client = server.available();
-  // run();
+
+  // CONNECTED TO CLIENT
   if (client) {
 	new_client();
-    // CONNECTED TO CLIENT
+	requested_started = millis();
+
     while (client.connected()) {
-		read_data();
-      // DATA AVAILABLE FROM CLIENT: if there is a client connected then receive 
-      // their request and processes it.
-      if (client.available()) {
-        // read data from client and save data into the request_msg array
-        // char c = client.read();        
-		if (handle_requests(client.read(), client) == false) {
+		if (millis() - requested_started > request_wait_time) break;
+
+		// read data from client, if available
+		if (client.available()) {
+			handle_requests(client.read());        
+			read_data();
 			write_data();
-			break;
 		}
-		// process_request = server_request(c);
-		// if (process_request) {
-		// 	// send a standard http response header
-		// 	parse_request();
-		// 	process_request();
-		//  send_response(client);
-		// 	prepare_for_next_client();
-		// 	break;          
-		//         }
-		/* END: INSIDE THE NEW LIBRARY */
+		
+		if (handle_response(client) == false) {
+			break;
 		}
     }
     // give the web browser time to receive the data
@@ -120,21 +109,18 @@ void new_client() {
 	}
 }
 
-boolean handle_requests(char _c, Client _client) {
+void handle_requests(char _c) {
 	int starting_state = process_state;
 	server_request(_c);
 	parse_request();
 	process();
-	send_response(_client);
-	prepare_for_next_client();
-	if(process_state == -1) return false;
-	else return true;
 }
 
-void respond_to_request(Client _client) {
-	process();
+boolean handle_response(Client _client) {
 	send_response(_client);
 	prepare_for_next_client();	
+	if(process_state == -1) return false;
+	else return true;
 }
 
 boolean server_request(char new_char) {
@@ -161,8 +147,7 @@ boolean server_request(char new_char) {
 					request.slice(0, msg_end_index); 
 				}
 
-				Serial.print("[server_request] END: "); Serial.print(new_char);
-				Serial.print(" state change to process_state: "); Serial.println(process_state);		
+				Serial.print("[server_request] state change to process_state: "); Serial.println(process_state);		
 			}
 		}
 
