@@ -14,6 +14,8 @@
  
  */
 
+#include "message.h"
+#include "config.h"
 #include <SPI.h>
 #include <Ethernet.h>
 
@@ -30,8 +32,8 @@ int services_act_pins [] = {3,5,6,9};
 
 /**********************************************************
  ** Variables that handle the restful message processing **/
-#define REQUEST_LENGTH 		75
-#define ELEMENT_DIV_COUNT  	2
+// #define REQUEST_MAX_LENGTH 		75
+// #define ELEMENT_DIV_COUNT  		2
 
 char req_end_pattern[] = {"\r\n"};
 char element_div[] = {'/',' '};
@@ -43,7 +45,7 @@ boolean services_sense_requested [] = {false,false,false,false,false,false,};
 int services_act_values [] = {0,0,0,0};
 boolean services_act_requested [] = {false,false,false,false};
 
-char request_msg [REQUEST_LENGTH];
+char request_msg [REQUEST_MAX_LENGTH];
 int request_msg_index = 0;
 
 long last_reading = 0;
@@ -83,38 +85,7 @@ void loop()
 
         // read data from client and save data into the request_msg array
         char c = client.read();        
-
-		/* INSIDE THE NEW LIBRARY */
-        process_request = false;
-        request_msg [request_msg_index] = c;
-        request_msg_index++;        
-
-		// CHECK IF REQUEST IS DONE: if done set process_request to true
-		int req_end_pattern_length = strlen(req_end_pattern);
-        if (!process_request && c == req_end_pattern[req_end_pattern_length-1]) {
-            process_request = true;
-			
-			// check if we found a sequence of chars that match the end_pattern
-			int msg_end_index = match_string_end(req_end_pattern, request_msg, request_msg_index-req_end_pattern_length);
-	        if (msg_end_index != -1) {
-				// Serial.print("[main loop] found the end of string sequence, full message: ");
-				// Serial.println(request_msg);
-				// remove request end pattern from the request
-				slice(request_msg, 0, request_msg_index-req_end_pattern_length);
-				// Serial.print("[main loop] mid process, full message: ");
-				// Serial.println(request_msg);
-				// remove any content after the second space from the request
-				msg_end_index = index_of(' ', request_msg, 0);
-	            msg_end_index = index_of(' ', request_msg,  msg_end_index + 1);
-	            if (msg_end_index != -1) { 
-					slice(request_msg, 0, msg_end_index+1); 
-				}
-				// Serial.print("[main loop] removed end, full message: ");
-				// Serial.println(request_msg);
-			}
-		}
-		
-        // PROCESS REQUEST: if process_request is set to true then parse the request
+		process_request = client_request(c);
 		if (process_request) {
 			// send a standard http response header
 			parse_request(request_msg);
@@ -145,29 +116,23 @@ boolean client_request(char new_char) {
         _process_request = true;
 		
 		// check if we found a sequence of chars that match the end_pattern
-		int msg_end_index = match_string_end(req_end_pattern, request_msg, request_msg_index-req_end_pattern_length);
+		int msg_end_index = request_match_string(req_end_pattern, request_msg, request_msg_index-req_end_pattern_length);
         if (msg_end_index != -1) {
-			// Serial.print("[main loop] found the end of string sequence, full message: ");
-			// Serial.println(request_msg);
 			// remove request end pattern from the request
-			slice(request_msg, 0, request_msg_index-req_end_pattern_length);
-			// Serial.print("[main loop] mid process, full message: ");
-			// Serial.println(request_msg);
+			request_slice(request_msg, 0, request_msg_index-req_end_pattern_length);
 			// remove any content after the second space from the request
-			msg_end_index = index_of(' ', request_msg, check_start(request_msg, 0));
-            msg_end_index = index_of(' ', request_msg, check_start(request_msg, msg_end_index));
+			msg_end_index = request_find(' ', request_msg, check_start(request_msg, 0));
+            msg_end_index = request_find(' ', request_msg, check_start(request_msg, msg_end_index));
             if (msg_end_index != -1) { 
-				slice(request_msg, 0, msg_end_index); 
+				request_slice(request_msg, 0, msg_end_index); 
 			}
-			// Serial.print("[main loop] removed end, full message: ");
-			// Serial.println(request_msg);
 		}
 	}
 	return _process_request;
 }
 
 void prepare_for_next_client() {
-    clear_request();
+    request_clear();
     end_of_request_counter = 0;
     request_msg_index = 0;	
 }

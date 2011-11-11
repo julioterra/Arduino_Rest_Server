@@ -20,7 +20,7 @@ int next_element(char* _msg_source, int start) {
 		// then set the end_index to the nearest div
 		// otherwise if an element_div was found and no other one
 		// was already found then set end_index to current div location.
-		int temp_index = index_of(element_div[i], _msg_source, start);
+		int temp_index = request_find(element_div[i], _msg_source, start);
 
 		if (temp_index != -1 && end_index != -1) {
 		    if (temp_index < end_index) { 
@@ -51,7 +51,7 @@ int check_for_state_msg (char* _msg_source, int start) {
 		end_index -= 1; 
 	}
    
-	int new_num = convert_string2int(_msg_source, start, end_index);
+	int new_num = request_to_i(_msg_source, start, end_index);
     return new_num;
 }
 

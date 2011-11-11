@@ -7,11 +7,11 @@ void parse_request (char* _request_msg) {
     for (int i = 0; i < 6; i ++) { services_sense_requested [i] = false; }
     Serial.println("[parse_request] beginning to parse");
 
-    int match_index = match_string_end("GET ", _request_msg, request_index);
+    int match_index = request_match_string("GET ", _request_msg, request_index);
     if (match_index != -1) {
 
         request_index = match_index + 1;
-		slice(_request_msg, request_index, strlen(_request_msg));
+		request_slice(_request_msg, request_index, strlen(_request_msg));
         Serial.print("[parse_request] request type GET confirmed, now deleted from message: $");
         Serial.println(_request_msg);
 
@@ -19,7 +19,7 @@ void parse_request (char* _request_msg) {
 
         // check if request is a root request. If so, then update the
         // requested arrays.
-        match_index = match_string_end("/ ", _request_msg, request_index);
+        match_index = request_match_string("/ ", _request_msg, request_index);
         if (match_index != -1 || strlen(_request_msg) <= 1) {
 	        Serial.println("[parse_request] request contains ROOT request ");
             for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
@@ -29,7 +29,7 @@ void parse_request (char* _request_msg) {
         // if the request was not a root request then read through each one
         else if (match_index == -1){
 	        Serial.println("[parse_request] request not root request: ");
-	        match_index = match_string_end("/all", _request_msg, request_index);
+	        match_index = request_match_string("/all", _request_msg, request_index);
 			if (match_index != -1) {
 		        Serial.println("[parse_request] request contains ALL request ");
 	            for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
@@ -91,7 +91,7 @@ void read_services(char* _request_msg, int _request_index, int service_types) {
                 // service names on this arduino. If match found then set requested array to true.
 				_request_index = check_start(_request_msg, _request_index);
                 if (service_types == 0) {
-                    match_index = match_string_end(services_sense_names_arrays[i], _request_msg, _request_index);
+                    match_index = request_match_string(services_sense_names_arrays[i], _request_msg, _request_index);
                     if (match_index != -1) {
 						services_sense_requested[i] = true;
 						Serial.print("[read_services] MATCH found: ");
@@ -99,7 +99,7 @@ void read_services(char* _request_msg, int _request_index, int service_types) {
 						end_index = match_index + 1;
 					}
                 } else if (service_types == 1) {
-                    match_index = match_string_end(services_act_names_arrays[i], _request_msg, _request_index);
+                    match_index = request_match_string(services_act_names_arrays[i], _request_msg, _request_index);
                     if (match_index != -1) {
 						services_act_requested[i] = true;
 						Serial.print("[read_services] MATCH found: ");

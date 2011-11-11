@@ -1,0 +1,4 @@
+
+
+#define REQUEST_MAX_LENGTH 		75
+#define ELEMENT_DIV_COUNT  		2
