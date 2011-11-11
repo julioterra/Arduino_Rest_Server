@@ -83,46 +83,37 @@ void loop()
 
         // read data from client and save data into the request_msg array
         char c = client.read();        
+
+		/* INSIDE THE NEW LIBRARY */
         process_request = false;
         request_msg [request_msg_index] = c;
         request_msg_index++;        
 
-        // REQUEST DONE: once we received "\r\n\r\n" the http message has ended 
-        // delete the last 4 chars from the message and set process_request to true
-
-//** MAKE END OF MESSAGE CUSTOMIZABLE - use find start method with full sequence of chars
-        if (!process_request && c == '\r' || c == '\n') {
-            end_of_request_counter++;  
-            if (end_of_request_counter >= 4) {
-                process_request = true;
-				int msg_end_index = index_of(' ', request_msg, 0) + 1;
-                msg_end_index = index_of(' ', request_msg, msg_end_index);
-                if (msg_end_index != -1) slice(request_msg, 0, msg_end_index);
-            }       
-        } else {
-            end_of_request_counter = 0;  	
+		// CHECK IF REQUEST IS DONE: if done set process_request to true
+		int req_end_pattern_length = strlen(req_end_pattern);
+        if (!process_request && c == req_end_pattern[req_end_pattern_length-1]) {
+            process_request = true;
+			
+			// check if we found a sequence of chars that match the end_pattern
+			int msg_end_index = match_string_end(req_end_pattern, request_msg, request_msg_index-req_end_pattern_length);
+	        if (msg_end_index != -1) {
+				// Serial.print("[main loop] found the end of string sequence, full message: ");
+				// Serial.println(request_msg);
+				// remove request end pattern from the request
+				slice(request_msg, 0, request_msg_index-req_end_pattern_length);
+				// Serial.print("[main loop] mid process, full message: ");
+				// Serial.println(request_msg);
+				// remove any content after the second space from the request
+				msg_end_index = index_of(' ', request_msg, 0);
+	            msg_end_index = index_of(' ', request_msg,  msg_end_index + 1);
+	            if (msg_end_index != -1) { 
+					slice(request_msg, 0, msg_end_index+1); 
+				}
+				// Serial.print("[main loop] removed end, full message: ");
+				// Serial.println(request_msg);
+			}
 		}
-
-		// START: NEW CODE / NEW CODE / NEW CODE
-		// only check if the request matches the pattern when the last letter from the pattern is matched
-		// int req_end_pattern_length = strlen(req_end_pattern);
-		//         if (!process_request && c == req_end_pattern[req_end_pattern_length-1]) {
-		//             process_request = true;
-		// 	int msg_end_index = -1;
-		// 	
-		// 	// check if we found a sequence of chars that match the end_pattern
-		// 	msg_end_index = match_string_end(' ', request_msg, request_msg_index-req_end_pattern_length);
-		//             if (msg_end_index != -1) {
-		// 		// remove request end pattern from the request
-		// 		slice(request_msg, 0, msg_end_index);
-		// 		// remove any content after the second space from the request
-		// 	            msg_end_index = index_of(' ', request_msg, index_of(' ', request_msg, 0) );
-		// 	            if (msg_end_index != -1) slice(request_msg, 0, msg_end_index);
-		// 	}
-		// }
-		// 
-		// END: NEW CODE / NEW CODE / NEW CODE
-
+		
         // PROCESS REQUEST: if process_request is set to true then parse the request
 		if (process_request) {
 			// send a standard http response header
@@ -132,6 +123,7 @@ void loop()
 			prepare_for_next_client();
 			break;          
         }
+		/* END: INSIDE THE NEW LIBRARY */
       }
     }
     // give the web browser time to receive the data
@@ -142,6 +134,37 @@ void loop()
 }
 
 
+boolean client_request(char new_char) {
+	boolean _process_request = false;
+    request_msg [request_msg_index] = new_char;
+    request_msg_index++;        
+
+	// CHECK IF REQUEST IS DONE: if done set process_request to true
+	int req_end_pattern_length = strlen(req_end_pattern);
+    if (!_process_request && new_char == req_end_pattern[req_end_pattern_length-1]) {
+        _process_request = true;
+		
+		// check if we found a sequence of chars that match the end_pattern
+		int msg_end_index = match_string_end(req_end_pattern, request_msg, request_msg_index-req_end_pattern_length);
+        if (msg_end_index != -1) {
+			// Serial.print("[main loop] found the end of string sequence, full message: ");
+			// Serial.println(request_msg);
+			// remove request end pattern from the request
+			slice(request_msg, 0, request_msg_index-req_end_pattern_length);
+			// Serial.print("[main loop] mid process, full message: ");
+			// Serial.println(request_msg);
+			// remove any content after the second space from the request
+			msg_end_index = index_of(' ', request_msg, check_start(request_msg, 0));
+            msg_end_index = index_of(' ', request_msg, check_start(request_msg, msg_end_index));
+            if (msg_end_index != -1) { 
+				slice(request_msg, 0, msg_end_index); 
+			}
+			// Serial.print("[main loop] removed end, full message: ");
+			// Serial.println(request_msg);
+		}
+	}
+	return _process_request;
+}
 
 void prepare_for_next_client() {
     clear_request();

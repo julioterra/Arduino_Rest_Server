@@ -62,15 +62,29 @@ int check_for_state_msg (char* _msg_source, int start) {
  *  returns the location of the element not including the starting
  *	separator element.
  */
-int check_start(char* _msg_source, int start) {
-	boolean moved = false;
+int check_start(char* _msg_source, int _start) {
+	if (check_start_single(_msg_source, _start) == _start + 1) {
+		return check_start_single(_msg_source, _start + 1);
+	}
+	return _start;
+
+	// boolean moved = false;
+	// for (int i = 0; i < ELEMENT_DIV_COUNT; i ++ ) {
+	// 	if (_msg_source[start] == element_div[i]) {
+	// 		start += 1;
+	// 		moved = true;
+	// 		break;
+	// 	}
+	// }
+	// if (moved) start = check_start(_msg_source, start);
+	// return start;
+}
+
+int check_start_single(char* _msg_source, int _start) {
 	for (int i = 0; i < ELEMENT_DIV_COUNT; i ++ ) {
-		if (_msg_source[start] == element_div[i]) {
-			start += 1;
-			moved = true;
-			break;
+		if (_msg_source[_start] == element_div[i]) {
+			return (_start + 1);
 		}
 	}
-	if (moved) start = check_start(_msg_source, start);
-	return start;
+	return _start;	
 }

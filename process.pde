@@ -1,5 +1,5 @@
 void parse_request (char* _request_msg) {
-    Serial.print("[parse_request_array] request: ");
+    Serial.print("[parse_request] request: ");
     Serial.println(_request_msg);
     int request_index = 0;
 
@@ -8,11 +8,11 @@ void parse_request (char* _request_msg) {
     Serial.println("[parse_request] beginning to parse");
 
     int match_index = match_string_end("GET ", _request_msg, request_index);
-    if (match_index != 1) {
+    if (match_index != -1) {
 
         request_index = match_index + 1;
 		slice(_request_msg, request_index, strlen(_request_msg));
-        Serial.print("[parse_request] request type GET confirmed, now deleted from message: ");
+        Serial.print("[parse_request] request type GET confirmed, now deleted from message: $");
         Serial.println(_request_msg);
 
         request_index = 0;
@@ -21,20 +21,23 @@ void parse_request (char* _request_msg) {
         // requested arrays.
         match_index = match_string_end("/ ", _request_msg, request_index);
         if (match_index != -1 || strlen(_request_msg) <= 1) {
+	        Serial.println("[parse_request] request contains ROOT request ");
             for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
             for (int i = 0; i < 6; i ++) { services_sense_requested [i] = true; }
         } 
 
         // if the request was not a root request then read through each one
         else if (match_index == -1){
-            read_services(_request_msg, request_index,0);
-            read_services(_request_msg, request_index,1);
-
+	        Serial.println("[parse_request] request not root request: ");
 	        match_index = match_string_end("/all", _request_msg, request_index);
 			if (match_index != -1) {
+		        Serial.println("[parse_request] request contains ALL request ");
 	            for (int i = 0; i < 4; i ++) { services_act_requested [i] = true; }
 	            for (int i = 0; i < 6; i ++) { services_sense_requested [i] = true; }
 			}
+            read_services(_request_msg, request_index,0);
+            read_services(_request_msg, request_index,1);
+
         }
     } 
 }
