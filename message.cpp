@@ -6,7 +6,7 @@ Message::Message () {
 }
 
 void Message::add (char _new_char) {
-	if (length == REQUEST_MAX_LENGTH) clear();
+	if (length == REQUEST_MAX_LENGTH) return;
 	msg[length] = _new_char;
 	length += 1;
 }

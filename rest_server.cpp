@@ -10,32 +10,11 @@ RestServer::RestServer() {
 		service_set_requested [i] = false;
 		service_set_updated [i] = false;
 	}	
-	for (int i = 0; i < ELEMENT_DIV_COUNT; i++) { div_chars[i] = '\0'; }
-	for (int i = 0; i < END_SEQ_LENGTH; i++) { end_sequence[i] = '\0'; }
+	div_and_end();
 	services[0] = GET_SERVICES;
 	services[1] = UPDATE_SERVICES;
-	
 }
 
-void RestServer::div_and_end() {
-	get_end_sequence(end_sequence);
-	get_element_div(div_chars);	
-	Serial.print("[div_and_end] div element numbers: "); 
-	for (int i = 0; i < ELEMENT_DIV_COUNT; i++) {
-		Serial.print(int(div_chars[i]));
-		Serial.print(", ");
-	}
-	Serial.println();
-
-	Serial.print("[end_sequence] div element numbers: "); 
-	for (int i = 0; i < END_SEQ_LENGTH; i++) {
-		Serial.print(int(end_sequence[i]));
-		Serial.print(", ");
-	}
-	Serial.println();
-		
-	
-}
 /***************************
  * PUBLIC METHODS
  **/
@@ -47,24 +26,12 @@ void RestServer::new_client() {
 	}
 }
 
-void RestServer::handle_requests(char _c) {
-	int starting_state = process_state;
-	Serial.print("[RestServer::handle_requests] handling request: "); Serial.println(_c);	
-	server_request(_c);
+boolean RestServer::handle_requests(Client _client) {
+	if (_client.available()) server_request(_client.read());
 	parse_request();
 	process();
-}
-
-boolean RestServer::handle_response(Client _client) {
-	send_response(_client);
-	prepare_for_next_client();	
-	if(process_state == -1) { return false; }
-	return true;
-}
-
-boolean RestServer::request_ready() {
 	if (process_state == 2) { return true; }
-	return false;    
+	return false;
 }
 
 void RestServer::respond() {
@@ -74,32 +41,32 @@ void RestServer::respond() {
 	}
 }
 
+boolean RestServer::handle_response(Client _client) {
+	send_response(_client);
+	prepare_for_next_client();	
+	if (process_state == -1) { return true; }
+	return false;
+}
+
 
 /***************************
- * TOP-LEVEL METHODS
- **/
+ TOP-LEVEL METHODS
 
+ */
 boolean RestServer::server_request(char new_char) {
 	if (process_state == 0) {
 
 		boolean _process_request = false;
 		request.add(new_char);
-		
-		Serial.print("[server_request] new char number: "); Serial.print(int(new_char));
-		Serial.print(" end_sequence "); Serial.println(process_state);
-
-		// char request_end [ELEMENT_DIV_COUNT];
-		// get_end_sequence(request_end); 
-		// convert_const(req_end_pattern, request_end);
-		
+				
 	    if (!_process_request && new_char == end_sequence[END_SEQ_LENGTH-1]) {
 			_process_request = true;
-			Serial.print("[server_request] found end_sequence potential match "); Serial.println();
 		
 			// check if we found a sequence of chars that match the end_pattern
 			int msg_end_index = request.match_string(end_sequence, request.length-END_SEQ_LENGTH);
 	        if (msg_end_index != NO_MATCH) {
 				process_state = 1;
+
 				// remove request end pattern from the request
 				request.slice(0, request.length-END_SEQ_LENGTH);
 				msg_end_index = request.find(' ', 0) + 1;
@@ -108,10 +75,13 @@ boolean RestServer::server_request(char new_char) {
 					request.slice(0, msg_end_index); 
 				}
 
-				Serial.print("[server_request] state change to process_state: "); Serial.println(process_state);		
+				Serial.print("[RestServer::server_request] request completed: "); Serial.print(request.msg);
+				Serial.print(" state changed to process_state: "); Serial.println(process_state);
 			}
 		}
-
+		else if (request.length >= REQUEST_MAX_LENGTH-1) {
+			process_state = 1;
+        }
 		return _process_request;
 	}
 }
@@ -122,25 +92,21 @@ void RestServer::parse_request () {
 	    for (int i = 0; i < 4; i ++) { service_set_requested [i] = false; }
 	    for (int i = 0; i < 6; i ++) { service_get_requested [i] = false; }
 
-	    Serial.println("[parse_request] parsing request.msg"); Serial.println(request.msg);
+	    // Serial.println("[parse_request] starting to parsing request.msg"); Serial.println(request.msg);
 
 	    int match_index = request.match_string("GET ", root_index);
 	    if (match_index != NO_MATCH) {
-
-	        // request_index = match_index + 1;
 			request.slice((match_index + 1), request.length);
-		    // Serial.print("[parse_request] request type GET confirmed, now deleted from message: '");
-		    // Serial.print(request.msg); Serial.println("'");
 
-	        // ROOT REQUEST: check for root request. 
-	        // If so, then update requested array to true.
+	        // ROOT REQUEST: check for root request 
 	        match_index = request.match_string("/ ", root_index);
 	        if (match_index != NO_MATCH || request.length <= 1) {
 		        Serial.println("[parse_request] request contains ROOT request ");
-	            for (int i = 0; i < 4; i ++) { service_set_updated [i] = true; }
+	            for (int i = 0; i < 4; i ++) { service_set_requested [i] = true; }
 	            for (int i = 0; i < 6; i ++) { service_get_requested [i] = true; }
 	        } 
-	        // if the request was not a root request then read through each one
+
+	        // if the request was not a root request then look for different services
 	        else if (match_index == NO_MATCH){
 		        // Serial.println("[parse_request] request not root request: ");
 		        match_index = request.match_string("/all", root_index);
@@ -158,9 +124,11 @@ void RestServer::parse_request () {
 	}
 }
 
+
+
 void RestServer::process() {
 	if (process_state == 2) {
-		if (!GET_CALLBACK && !UPDATE_CALLBACK) {
+		if (GET_CALLBACK == 0 && UPDATE_CALLBACK == 0) {
 			process_state = 3;    
 			Serial.print("[process] state change to process_state: "); Serial.println(process_state);	
 		}	
@@ -220,6 +188,14 @@ void RestServer::prepare_for_next_client() {
 		Serial.print("[prepare_for_next_client] state change to process_state: "); Serial.println(process_state);	
 	}
 }
+
+void RestServer::div_and_end() {
+	div_chars[0] = '/';
+	div_chars[1] = ' ';
+	end_sequence[0] = '\r';
+	end_sequence[1] = '\n';
+}
+
 
 /***************************
  * HELPER METHODS
@@ -296,8 +272,7 @@ int RestServer::check_start_single(int _start) {
 
 void RestServer::read_services() {        
                            
-    // Serial.print("[read_services] New request received. Length: "); Serial.print(request.length);
-    // Serial.print(" Request: "); Serial.println(request.msg);
+    // Serial.print("[RestServer::read_services] parse services from new request: "); Serial.println(request.msg);
 	
 	int next_start_pos = 0;
 	boolean processing_request = true;
@@ -307,9 +282,6 @@ void RestServer::read_services() {
 		// re-initializing the start and end position of current element 
 		int cur_start_pos = next_start_pos;
 		next_start_pos = next_element(cur_start_pos);
-
-		// Serial.print("[read_services] processing element from position "); Serial.print(cur_start_pos);
-		// Serial.print(" to "); Serial.println(next_start_pos);
 
 		// if no nex
 		if (next_start_pos == NO_MATCH) {
@@ -322,7 +294,10 @@ void RestServer::read_services() {
 			// Loop through each service of current service type
 			for (int i = 0; i < services[j]; i++) {
 				int match_index = service_match(j, cur_start_pos, i);
-				if (match_index != NO_MATCH) { next_start_pos = match_index; }
+				if (match_index != NO_MATCH) { 
+					next_start_pos = match_index; 
+					if (next_start_pos >= request.length) break;
+				}
 			} 
 		}
     }    
@@ -347,17 +322,11 @@ int RestServer::service_match(int _service_type, int _start_pos, int _service_ar
         match_index = request.match_string(current_service, _start_pos);
         if (match_index != NO_MATCH) {
 			service_set_requested[_service_array_index] = true;
-			Serial.print("[RestServer::service_match] matched a SET new service: "); Serial.println(current_service);	
+			Serial.print("[RestServer::service_match] matched a new service: "); Serial.println(current_service);	
 			
 			// check if there is a set state message (number) following the service name
-			int temp_index = state_match(_service_type, (match_index + 1), _service_array_index);
-			if (temp_index != NO_MATCH) {
-				service_set_updated[_service_array_index] = true;
-				match_index = temp_index;					 
-				Serial.print("[RestServer::service_match] matched a SET new state: "); Serial.println(current_service);	
-			}
+			match_index = state_match(_service_type, (match_index + 1), _service_array_index);
 		}
-		Serial.print("[RestServer::service_match] matched a new service: "); Serial.println(current_service);	
     }	
 	return match_index;
 }
@@ -368,11 +337,15 @@ int RestServer::state_match(int _service_type, int _start_pos, int _service_arra
 	// check if for a state message (a number following an UPDATE-capable service)
 	int new_number = check_for_state_msg(_start_pos);
 	if (new_number != NO_MATCH) {
-		// if match exists, then 
+		// if match exists, then (1) set updated array to true, (2) update state array 
+		service_set_updated[_service_array_index] = true;
 		service_set_state[_service_array_index] = new_number; 
-		new_number = next_element(_start_pos);
+		// check the position of the next element
+		_start_pos = next_element(_start_pos);
+		if (_start_pos == NO_MATCH) _start_pos = request.length;
+		Serial.print("[RestServer::state_match] found a state message: "); Serial.println(_start_pos);	
 	}  
-	return new_number;
+	return _start_pos;
 }
 
 

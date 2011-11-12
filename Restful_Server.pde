@@ -20,7 +20,6 @@
 #include "config_rest.h"
 #include "rest_server.h"
 
-
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x00, 0x68, 0xF8 };
@@ -32,14 +31,13 @@ Server server(7999);
 int service_get_pins [] = {A0, A1, A2, A3, A4, A5};
 int service_act_pins [] = {3,5,6,9};
 
-long requested_started = 0;
+long request_started = 0;
 int request_wait_time = 15 * 1000;
 RestServer request_server = RestServer();
 
 long loop_counter = 0;
 
-void setup()
-{
+void setup() {
 	// start the Ethernet connection and the server:
 	Ethernet.begin(mac, ip, gateway, subnet);
 	server.begin();
@@ -48,31 +46,28 @@ void setup()
 	for(int i = 0; i < 4; i++) { pinMode(service_act_pins[i], OUTPUT); }
 }
 
-void loop()
-{
-	if (loop_counter == 5000) request_server.div_and_end();
-	loop_counter++;
+void loop() {
+	// if (loop_counter == 5000) request_server.div_and_end();
+	// loop_counter++;
 
 	// listen for incoming clients
 	Client client = server.available();
 	
 	// CONNECTED TO CLIENT
 	if (client) {
-		requested_started = millis();
 		request_server.new_client();
-		Serial.print("[loop] connected to a new client "); Serial.println();
+		request_started = millis();
 	
 		while (client.connected()) {
+
 			// read data from client, if available
-			if (client.available()) {
-				char c = client.read();
-				Serial.print("[loop] reading client data: "); Serial.println(c);
-				request_server.handle_requests(c);        
+			if (request_server.handle_requests(client)) {
 				read_data();
 				write_data();
-			}
-			if (request_server.handle_response(client) == false) { break; }
-			if (millis() - requested_started > request_wait_time) { break; }
+				request_server.respond();
+			}			
+			if (request_server.handle_response(client)) break;
+			if (millis() - request_started > request_wait_time) break;
 		}
 		// give the web browser time to receive the data and close connection
 		delay(1);
