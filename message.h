@@ -1,7 +1,8 @@
+#ifndef Message_h
+#define Message_h
+
 #include "WProgram.h"
-#include "config.h"
-#ifndef message_h
-#define message_h
+#include "config_rest.h"
 
 class Message {
 
