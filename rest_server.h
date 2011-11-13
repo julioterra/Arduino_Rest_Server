@@ -44,7 +44,7 @@ class RestServer {
 		int service_set_state [SET_SERVICES_COUNT];
 		boolean service_get_requested [GET_SERVICES_COUNT];
 		boolean service_set_requested [SET_SERVICES_COUNT];
-		boolean service_set_updated [ELEMENT_DIV_LENGTH];
+		boolean service_set_updated [SET_SERVICES_COUNT];
 
 		RestServer();
 		void new_client();
