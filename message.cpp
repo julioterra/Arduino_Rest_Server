@@ -1,10 +1,18 @@
 #include "Message.h"
 
+/* Message()
+ *	Initializes the msg and length variables for new instance of the
+ *	Message class.
+ */
 Message::Message () {
 	for (int i = 0; i < REQUEST_MAX_LENGTH; i++) { msg[i] = '\0'; }
 	length = 0;
 }
 
+/* add(char)
+ *	Accepts a char and adds it to the end of the message. If the request 
+ * 	has reached its maximum length then the new letter are ignored. 
+ */
 void Message::add (char _new_char) {
 	if (length == REQUEST_MAX_LENGTH) return;
 	msg[length] = _new_char;
