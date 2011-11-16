@@ -1,5 +1,5 @@
-#ifndef Message_h
-#define Message_h
+#ifndef __RestMessage_h__
+#define __RestMessage_h_
 
 #include "WProgram.h"
 #include "config_rest.h"

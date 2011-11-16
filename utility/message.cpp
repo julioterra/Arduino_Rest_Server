@@ -1,4 +1,4 @@
-#include "Message.h"
+#include "message.h"
 
 /* Message()
  *	Initializes the msg and length variables for new instance of the
