@@ -1,5 +1,9 @@
 #include "rest_server.h"
 
+/****************************
+ PUBLIC METHODS & CONSTRUCTOR
+ */
+
 RestServer::RestServer() {
 	request = Message();
 	for (int i = 0; i < GET_SERVICES_COUNT; i++) service_get_state [i] = 0;
@@ -12,19 +16,8 @@ RestServer::RestServer() {
 	end_sequence[1] = '\n';
 	services[0] = GET_SERVICES_COUNT;
 	services[1] = SET_SERVICES_COUNT;
-	start_time = 0;
+	timeout_start_time = 0;
 	timeout_period = 10 * 1000;
-}
-
-/***************************
- * PUBLIC METHODS
- **/
-
-void RestServer::new_client() {
-	// if (process_state == -1) { 
-		process_state = 0;
-		// Serial.print("[RestServer::new_client] state change to process_state: "); Serial.println(process_state);	
-	// }
 }
 
 boolean RestServer::handle_requests(Client _client) {
@@ -70,26 +63,34 @@ boolean RestServer::handle_response() {
 }
 
 
-/***************************
+/*
  TOP-LEVEL METHODS
+	Methods directly accessed by public methods. These methods provide high-level
+	functionality such as reading, parsing and responding to requests.  
  */
 boolean RestServer::read_request(char new_char) {
-	if (process_state == 0) {
-		if (request.length == 0) start_time = millis();
 
-		boolean _process_request = false;
+	// if process_state is -1 then start timeout timer, and set process state to 0
+	if (process_state == -1) {
+		timeout_start_time = millis();
+		process_state = 0;
+	}
+
+	if (process_state == 0) {
 		request.add(new_char);
 				
-		// END SEQUENCE: check if end sequence reached
-	    if (!_process_request && new_char == end_sequence[END_SEQ_LENGTH-1]) {
+		// Check if this char is equal to the last char of the end sequence
+	    if (new_char == end_sequence[END_SEQ_LENGTH-1]) {
 		
-			// check if we found a sequence of chars that match the end_pattern
+			// check for full end sequence
 			int msg_end_index = request.match_string(end_sequence, request.length-END_SEQ_LENGTH);
+			
+			// if match was found then change process_state and remove end seq
 	        if (msg_end_index != NO_MATCH) {
 				process_state = 1;
-
-				// remove request end pattern from the request
 				request.slice(0, request.length-END_SEQ_LENGTH);
+
+				// removed unused content from request
 				msg_end_index = request.find(' ', 0) + 1;
 	            msg_end_index = request.find(' ', msg_end_index);
 	            if (msg_end_index != NO_MATCH) request.slice(0, msg_end_index); 
@@ -99,12 +100,15 @@ boolean RestServer::read_request(char new_char) {
 			}
 		}
 
-		// REQUEST LENGTH: check if request reached max length	
+		// check if request reached max length, and if so, try to process the request
 		if (request.length >= REQUEST_MAX_LENGTH-1) process_state = 1;
-		if ((millis() - start_time > timeout_period) && request.length > 5) process_state = 1;			
 
-		return _process_request;
+		// check if request has timed out, if so try to process the request
+		if ((millis() - timeout_start_time > timeout_period) && request.length > 5) process_state = 1;			
 	}
+
+	if (process_state == 1) return true; 
+	else return false;
 }
 
 void RestServer::parse_request () {
@@ -147,17 +151,18 @@ void RestServer::parse_request () {
 
 void RestServer::process() {
 	if (process_state == 2) {
-		boolean requested = false;
-		for (int i = 0; i < GET_SERVICES_COUNT; i++) if (service_get_requested [i] == true) requested = true;
+
+		// check if any services were requested or updated
+		boolean service_active = false;
+		for (int i = 0; i < GET_SERVICES_COUNT; i++) if (service_get_requested [i] == true) service_active = true;
 		for (int i = 0; i < SET_SERVICES_COUNT; i++) {
-			if (service_set_requested [i] == true) requested = true;
-			if (service_set_updated [i] == true) requested = true;
+			if (service_set_requested [i] == true) service_active = true;
+			if (service_set_updated [i] == true) service_active = true;
 		}	
 
-		if (CALLBACK == 0 || !requested) {
-			process_state = 3;    
-			// Serial.print("[RestServer::process] state change to process_state: "); Serial.println(process_state);	
-		} 		
+		// Update process state if callback is turned off, or no services have been requested or updated
+		if (CALLBACK == 0 || !service_active) process_state = 3;   
+		// if (process_state == 3) Serial.print("[RestServer::process] state change to process_state: "); Serial.println(process_state);	
 	}
 }
 
@@ -167,23 +172,22 @@ void RestServer::send_response(Client _client) {
 	    _client.println("Content-Type: text/html");
 	    _client.println();
 
-	    // _client.println("GET services: <br />");
 	    // output the value of each analog input pin
 	    for(int i = 0; i < 6; i++) {
 	        if (service_get_requested[i]) {
-	            _client.print(services_sense_names_arrays[i]);
+				get_service_GET(i, current_service);
+	            _client.print(current_service);
 	            _client.print(": ");
 	            _client.print(service_get_state[i]);
 	            _client.println("<br />");
 	        }
 	    }
-	    // _client.println("<br />");
 
-	    // _client.println("SET services: <br />");
 	    // output the value of each analog input pin
 	    for(int i = 0; i < 4; i++) {
 	        if (service_set_requested[i]) {
-	            _client.print(services_act_names_arrays[i]);
+	            get_service_SET(i, current_service);
+	            _client.print(current_service);
 	            _client.print(": ");
 	            _client.print(service_set_state[i]);
 	            _client.println("<br />");
@@ -201,22 +205,22 @@ void RestServer::send_response() {
 	    Serial.println("Content-Type: text/html");
 	    Serial.println();
 
-	    // Serial.println("GET services: <br />");
 	    // output the value of each analog input pin
 	    for(int i = 0; i < 6; i++) {
 	        if (service_get_requested[i]) {
-	            Serial.print(services_sense_names_arrays[i]);
+				get_service_GET(i, current_service);
+	            Serial.print(current_service);
 	            Serial.print(": ");
 	            Serial.print(service_get_state[i]);
 	            Serial.println("<br />");
 	        }
 	    }
 
-	    // Serial.println("SET services: <br />");
 	    // output the value of each analog input pin
 	    for(int i = 0; i < 4; i++) {
 	        if (service_set_requested[i]) {
-	            Serial.print(services_act_names_arrays[i]);
+	            get_service_SET(i, current_service);
+	            Serial.print(current_service);
 	            Serial.print(": ");
 	            Serial.print(service_set_state[i]);
 	            Serial.println("<br />");
@@ -240,28 +244,31 @@ void RestServer::prepare_for_next_client() {
 	}
 }
 
-/***************************
- * HELPER METHODS
- **/
+/********************************************************
+ HELPER METHODS
+	Methods that provide support for the top-level and user-interface methods. These
+	methods provide lower-level functionality, such as helping to identify the next
+	restful service request, service state, etc.  
+ */
 
-/* next_element(char*, int)
- *	accepts a string (char array) and a start index. looks for the
- *	next element by searching for divs in the div_chars array.
- *	This array can be user defined based on how they want to structure
- *	and separate their messages. Standard separators include ' ' and '/ '  
- *  returns the location of the next div element if one is found
- *	otherwise, it returns NO_MATCH.
+/* next_element(int)
+	Looks for the next restful service element by searching for element division characters 
+	specified in the the div_chars array.
+	Accepts: index where to start searching for next element within the request. 
+	Returns: index position of the next div element if one is found, otherwise, returns NO_MATCH.
  */
 int RestServer::next_element(int _start) {
 	_start = check_start(_start);
 	if (_start >= request.length) return NO_MATCH;
-
-	// loop through each element of div_chars array to check for element end
 	int match_index = NO_MATCH;
+
+	// loop through each element of div_chars array to search for a match in the request
 	for (int i = 0; i < ELEMENT_DIV_LENGTH; i ++ ) { 
 		int new_index = request.find(div_chars[i], _start);
-		// if no previous match, or current match index is smaller, then update match_index
+
+		// if match is found then update the match_index if...
 		if (new_index != NO_MATCH) {
+			// ... match_index equals NO_MATCH, or new_index is smaller then match_index
 			if (match_index == NO_MATCH || (new_index < match_index)) {
 				match_index = new_index;	
 			} 
@@ -270,10 +277,11 @@ int RestServer::next_element(int _start) {
 	return match_index;
 }
 
-/* check_for_state_msg(char*, int)
- *	accepts a string (char array) and a start index. looks for state
- *	information sent as a number. If number is found it is returned.  
- *  Otherwise a NO_MATCH is returned.
+/* check_for_state_msg(int)
+	Checks if element at current location is a state message. Currently, only positive integers
+	state messages are supported.
+	Accepts: index where to start searching for state message. 
+	Returns: state message if one is found, otherwise, NO_MATCH is returned.
  */
 int RestServer::check_for_state_msg(int _start) {
 	_start = check_start(_start);
@@ -290,7 +298,7 @@ int RestServer::check_for_state_msg(int _start) {
     return new_num;
 }
 
-/* check_start(char*, int)
+/* check_start(int)
  *	accepts a string (char array) and a start index. looks at the first
  *	element of the message to see if it is a separator, ' ' and '/ ',
  *	and if so, it moves the start index one space over.  
@@ -357,7 +365,7 @@ int RestServer::service_match(int _service_type, int _start_pos, int _service_ar
 
 	// match resquest for UPDATE services
     } else if (_service_type == SET_SERVICES) {
-		get_service_UPDATE(_service_array_index, current_service);
+		get_service_SET(_service_array_index, current_service);
         match_index = request.match_string(current_service, _start_pos);
         if (match_index != NO_MATCH) {
 			service_set_requested[_service_array_index] = true;

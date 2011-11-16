@@ -18,7 +18,7 @@ class RestServer {
 		char div_chars[END_SEQ_LENGTH + 1];
 		char current_service [NAME_LENGTH];
 
-		long start_time;
+		long timeout_start_time;
 		int timeout_period;
 
 		boolean read_request(char);
@@ -46,13 +46,12 @@ class RestServer {
 		boolean service_set_requested [SET_SERVICES_COUNT];
 		boolean service_set_updated [ELEMENT_DIV_LENGTH];
 
-		RestServer();
-		void new_client();
-		boolean handle_requests(Client); 
-		boolean handle_requests(); 
-		void respond();
-		boolean handle_response(Client);
-		boolean handle_response();
+		RestServer();						// constructor
+		void respond();						// notifies rest_server when ready to respond
+		boolean handle_requests(Client); 	// reads request from Ethernet client
+		boolean handle_response(Client); 	// sends response to Ethernet client
+		boolean handle_requests(); 			// reads request from Serial client
+		boolean handle_response(); 			// sends response to Serial client
 
 };
 
