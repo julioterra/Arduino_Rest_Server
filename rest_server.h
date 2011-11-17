@@ -4,6 +4,7 @@
 #include "WProgram.h"
 #include "config_rest.h"
 #include <utility/message.h>
+#include <../streaming/Streaming.h>
 #include <Ethernet.h>
 
 class RestServer {
@@ -32,8 +33,8 @@ class RestServer {
 		void prepare_for_next_client();
 
 		void read_services();
-		int service_match(int, int, int);
-		int state_match(int, int, int);
+		int service_match(int, int);
+		int state_match(int, int);
 
 		int next_element(int);
 		int check_for_state_msg(int);
@@ -47,6 +48,14 @@ class RestServer {
 		boolean service_get_requested [GET_SERVICES_COUNT];
 		boolean service_set_requested [POST_SERVICES_COUNT];
 		boolean service_set_updated [ELEMENT_DIV_LENGTH];
+		
+		struct Resource {
+				int state;
+				boolean get;
+				boolean post;
+			};
+		
+		struct Resource resources[SERVICES_COUNT];
 
 		RestServer();						// constructor
 		void respond();						// notifies rest_server when ready to respond

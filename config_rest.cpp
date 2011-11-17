@@ -13,3 +13,9 @@ void get_service_POST(int index, char* test_string) {
 	}
 	// Serial.print("[get_service_SET] update service: "); Serial.println(test_string);		
 }
+
+void get_service(int index, char* test_string) {
+	if (index < SERVICES_COUNT) {
+		for (int i = 0; i < NAME_LENGTH; i++) { test_string[i] = char(resource_list[index].name[i]); }
+	}
+}

@@ -6,8 +6,7 @@
 
 RestServer::RestServer() {
 	request = Message();
-	for (int i = 0; i < GET_SERVICES_COUNT; i++) service_get_state [i] = 0;
-	for (int i = 0; i < POST_SERVICES_COUNT; i++) service_set_state [i] = 0;
+	for (int i = 0; i < SERVICES_COUNT; i++) resources[i].state = 0;
 	prepare_for_next_client();	
 
 	div_chars[0] = '/';
@@ -24,42 +23,38 @@ boolean RestServer::handle_requests(Client _client) {
 	if (_client.available()) read_request(_client.read());
 	parse_request();
 	process();
-	if (process_state == 2) { return true; }
-	return false;
+	
+	if (process_state == 2) return true;
+	else return false;
 }
 
 boolean RestServer::handle_requests() {
 	if (Serial.available()) read_request(Serial.read());
 	parse_request();
 	process();
-	if (process_state == 2) { 
-		return true; 
-	}
-	return false;
+	
+	if (process_state == 2) return true; 
+	else return false;
 }
 
 void RestServer::respond() {
 	if (process_state == 2) {
 		process_state = 3;
-		// Serial.print("[RestServer::respond] state change to process_state: "); Serial.println(process_state);
 	}
 }
 
 boolean RestServer::handle_response(Client _client) {
 	send_response(_client);
 	prepare_for_next_client();	
-	if (process_state == -1) { return true; }
-	return false;
+	if (process_state == -1) return true;
+	else return false;
 }
 
 boolean RestServer::handle_response() {
 	send_response();
 	prepare_for_next_client();	
-	if (process_state == -1) { 
-		process_state = 0;
-		return true; 
-	}
-	return false;
+	if (process_state == -1) return true; 
+	else return false;
 }
 
 
@@ -114,9 +109,6 @@ boolean RestServer::read_request(char new_char) {
 void RestServer::parse_request () {
 	if (process_state == 1) {
 	    int root_index = 0;
-	    for (int i = 0; i < GET_SERVICES_COUNT; i ++) { service_get_requested [i] = false; }
-	    for (int i = 0; i < POST_SERVICES_COUNT; i ++) { service_set_requested [i] = false; }
-
 	    // Serial.println("[parse_request] starting to parsing request.msg"); Serial.println(request.msg);
 
 		// look for GET and POST requests
@@ -125,49 +117,43 @@ void RestServer::parse_request () {
 	
 		// if a match is found then process the request
 	    if (match_index != NO_MATCH) {
-			// set the type of request that was found (0 = GET, 1 = POST)
-			if (request.msg[0] == 'G') request_type = 0;
-			else request_type = 1;
+			// set the type of request that was found
+			if (request.msg[0] == 'G') request_type = GET_SERVICES;
+			else request_type = POST_SERVICES;
 
 			// remove the GET or POST verb from the beginning of the request
 			request.slice((match_index + 1), request.length);
 
-	        // ROOT REQUEST: check for root request 
+	        // Check for root request 
 	        match_index = request.match_string("/ ", root_index);
 	        if (match_index != NO_MATCH || request.length <= 1) {
-		        // Serial.println("[RestServer::parse_request] request contains ROOT request ");
-	            for (int i = 0; i < GET_SERVICES_COUNT; i ++) { service_get_requested [i] = true; }
-	            for (int i = 0; i < POST_SERVICES_COUNT; i ++) { service_set_requested [i] = true; }
+				for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;				
 	        } 
 
-	        // if the request was not a root request then look for different services
+	        // if this is not a root request then look for different request types
 	        else if (match_index == NO_MATCH){
-		        // Serial.println("[parse_request] request not root request: ");
+
+				// see if an /all request was provided
 		        match_index = request.match_string("/all", root_index);
 				if (match_index != NO_MATCH) {
-			        // Serial.println("[parse_request] request contains ALL request ");
-		            for (int i = 0; i < GET_SERVICES_COUNT; i ++) { service_get_requested [i] = true; }
-		            for (int i = 0; i < POST_SERVICES_COUNT; i ++) { service_set_requested [i] = true; }
+					for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;
 				}
+
+				// look for individual service/resource requests
 	            read_services();
 	        }
 	    } 
 		process_state = 2;
-		// Serial.print("[RestServer::parse_request] END: process_state "); Serial.print(process_state);		
-		// Serial.print(" request.msg: '"); Serial.print(request.msg); Serial.println("'");
 	}
 }
 
 void RestServer::process() {
 	if (process_state == 2) {
 
-		// check if any services were requested or updated
 		boolean service_active = false;
-		for (int i = 0; i < GET_SERVICES_COUNT; i++) if (service_get_requested [i] == true) service_active = true;
-		for (int i = 0; i < POST_SERVICES_COUNT; i++) {
-			if (service_set_requested [i] == true) service_active = true;
-			if (service_set_updated [i] == true) service_active = true;
-		}	
+		for (int i = 0; i < SERVICES_COUNT; i++) {
+			if (resources[i].get || resources[i].post) service_active = true;
+		}
 
 		// Update process state if callback is turned off, or no services have been requested or updated
 		if (CALLBACK == 0 || !service_active) process_state = 3;   
@@ -177,79 +163,45 @@ void RestServer::process() {
 
 void RestServer::send_response(Client _client) {
 	if (process_state == 3) {
-	    _client.println("HTTP/1.1 200 OK");
-	    _client.println("Content-Type: text/html");
-	    _client.println();
+		_client << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
 
-	    // output the value of each analog input pin
-	    for(int i = 0; i < 6; i++) {
-	        if (service_get_requested[i]) {
-				get_service_GET(i, current_service);
-	            _client.print(current_service);
-	            _client.print(": ");
-	            _client.print(service_get_state[i]);
-	            _client.println("<br />");
+	    for(int i = 0; i < SERVICES_COUNT; i++) {
+			if (resources[i].get || resources[i].post) {
+				get_service(i, current_service);
+				_client << current_service << ": " << resources[i].state << "<br />" << CRLF;
 	        }
 	    }
 
-	    // output the value of each analog input pin
-	    for(int i = 0; i < 4; i++) {
-	        if (service_set_requested[i]) {
-	            get_service_POST(i, current_service);
-	            _client.print(current_service);
-	            _client.print(": ");
-	            _client.print(service_set_state[i]);
-	            _client.println("<br />");
-	        }
-	    }
 		send_response();
 		process_state = 4;
-		// Serial.print("[RestServer::send_response(client)] state change to process_state: "); Serial.println(process_state);	
 	}
 }
 
 void RestServer::send_response() {
 	if (process_state == 3) {
-	    Serial.println("HTTP/1.1 200 OK");
-	    Serial.println("Content-Type: text/html");
-	    Serial.println();
+		Serial << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
 
-	    // output the value of each analog input pin
-	    for(int i = 0; i < 6; i++) {
-	        if (service_get_requested[i]) {
-				get_service_GET(i, current_service);
-	            Serial.print(current_service);
-	            Serial.print(": ");
-	            Serial.print(service_get_state[i]);
-	            Serial.println("<br />");
+	    for(int i = 0; i < SERVICES_COUNT; i++) {
+			if (resources[i].get || resources[i].post) {
+				get_service(i, current_service);
+				Serial << current_service << ": " << resources[i].state << "<br />" << CRLF;
 	        }
 	    }
 
-	    // output the value of each analog input pin
-	    for(int i = 0; i < 4; i++) {
-	        if (service_set_requested[i]) {
-	            get_service_POST(i, current_service);
-	            Serial.print(current_service);
-	            Serial.print(": ");
-	            Serial.print(service_set_state[i]);
-	            Serial.println("<br />");
-	        }
-	    }
 		process_state = 4;
-		// Serial.print("[RestServer::send_response(serial)] state change to process_state: "); Serial.println(process_state);	
 	}
 }
 
 void RestServer::prepare_for_next_client() {
 	if (process_state == 4) {
 		request.clear();
-		for (int i = 0; i < GET_SERVICES_COUNT; i++) service_get_requested [i] = false;
-		for (int i = 0; i < POST_SERVICES_COUNT; i++) {
-			service_set_requested [i] = false;
-			service_set_updated [i] = false;
-		}	
+
+		for (int i = 0; i < SERVICES_COUNT; i++) {
+			resources[i].get = false;
+			resources[i].post = false;
+		}
+
 		process_state = -1;
-		// Serial.print("[RestServer::prepare_for_next_client] state change to process_state: "); Serial.println(process_state);	
 	}
 }
 
@@ -279,9 +231,7 @@ int RestServer::next_element(int _start) {
 		// if match is found then update the match_index if...
 		if (new_index != NO_MATCH) {
 			// ... match_index equals NO_MATCH, or new_index is smaller then match_index
-			if (match_index == NO_MATCH || (new_index < match_index)) {
-				match_index = new_index;	
-			} 
+			if (match_index == NO_MATCH || (new_index < match_index)) match_index = new_index;	
 		} 		 
 	}
 	return match_index;
@@ -349,8 +299,6 @@ int RestServer::check_start_single(int _start) {
  */
 void RestServer::read_services() {        
                            
-    // Serial.print("[RestServer::read_services] parse services from new request: "); Serial.println(request.msg);
-	
 	int next_start_pos = 0;
 	boolean processing_request = true;
 	
@@ -360,23 +308,22 @@ void RestServer::read_services() {
 		int cur_start_pos = next_start_pos;
 		next_start_pos = next_element(cur_start_pos);
 
-		// if no nex
+		// if next_start_pos returns a NO_MATCH then we have reached end of resource request 
 		if (next_start_pos == NO_MATCH) {
 			next_start_pos = request.length - 1;
 			processing_request = false;
 		}
 
-		// Loop through services of the two different types
-		for (int j = 0; j < SERVICE_TYPES; j++) {
-			// Loop through each service of current service type
-			for (int i = 0; i < services[j]; i++) {
-				int match_index = service_match(j, i, cur_start_pos);
-				if (match_index != NO_MATCH) { 
-					next_start_pos = match_index; 
-					if (next_start_pos >= request.length) break;
-				}
-			} 
+		// loop through each resource/service name to look for a match
+		for (int i = 0; i < SERVICES_COUNT; i++) {
+			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
+			int match_index = service_match(i, cur_start_pos);
+			if (match_index != NO_MATCH) { 
+				next_start_pos = match_index; 
+				if (next_start_pos >= request.length) break;
+			}
 		}
+		
     }    
 }
 
@@ -391,32 +338,24 @@ void RestServer::read_services() {
 	Returns: returns location of the next element within the request, if a service 
 		is found; otherwise, returns NO_MATCH  
  */
-int RestServer::service_match(int _service_type, int _service_array_index, int _start_pos) {
+int RestServer::service_match(int _service_array_index, int _start_pos) {
 	// check that start pos is not a div char, and that it is smaller than the request's length
 	_start_pos = check_start(_start_pos);
 	if (_start_pos == NO_MATCH) return NO_MATCH;
 	int match_index = NO_MATCH;
-	
-	// match resquest for GET services
-    if (_service_type == GET_SERVICES) {
-		get_service_GET(_service_array_index, current_service);
-        match_index = request.match_string(current_service, _start_pos);
-        if (match_index != NO_MATCH) { 
-			service_get_requested[_service_array_index] = true;
-			// Serial.print("[RestServer::service_match] matched a GET new service: "); Serial.println(current_service);	
-		}
 
-	// match resquest for SET services
-    } else if (_service_type == POST_SERVICES) {
-		get_service_POST(_service_array_index, current_service);
-        match_index = request.match_string(current_service, _start_pos);
-        if (match_index != NO_MATCH) {
-			service_set_requested[_service_array_index] = true;
-			// Serial.print("[RestServer::service_match] matched a new service: "); Serial.println(current_service);	
-			// check if there is a set state message (number) following the service name
-			match_index = state_match(_service_type, _service_array_index, (match_index + 1));
+	// get current resource name and try to match to current request element
+	get_service(_service_array_index, current_service);
+	match_index = request.match_string(current_service, _start_pos);
+
+	if (match_index != NO_MATCH) { 
+		resources[_service_array_index].get = true;
+		
+		if (resource_list[_service_array_index].post_enabled && request_type == POST_SERVICES) {
+			match_index = state_match(_service_array_index, (match_index + 1));	
 		}
-    }	
+	}
+
 	return match_index;
 }
 
@@ -431,17 +370,18 @@ int RestServer::service_match(int _service_type, int _service_array_index, int _
 	Returns: returns location of the next element within the request, if a state message 
 		is found; otherwise, returns NO_MATCH  
  */
-int RestServer::state_match(int _service_type, int _service_array_index, int _start_pos) {
+int RestServer::state_match(int _service_array_index, int _start_pos) {
 	// check if for a state message (a number following an UPDATE-capable service)
 	int new_number = check_for_state_msg(_start_pos);
+
+	// if match exists, then (1) set updated array to true, (2) update state array 
 	if (new_number != NO_MATCH) {
-		// if match exists, then (1) set updated array to true, (2) update state array 
-		service_set_updated[_service_array_index] = true;
-		service_set_state[_service_array_index] = new_number; 
+		resources[_service_array_index].post = true;
+		resources[_service_array_index].state = new_number;
+
 		// check the position of the next element
 		_start_pos = next_element(_start_pos);
 		if (_start_pos == NO_MATCH) _start_pos = request.length;
-		// Serial.print("[RestServer::state_match] found a state message: "); Serial.println(_start_pos);	
 	}  
 	return _start_pos;
 }
