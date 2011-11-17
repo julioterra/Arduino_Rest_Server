@@ -13,8 +13,7 @@ RestServer::RestServer() {
 	div_chars[1] = ' ';
 	end_sequence[0] = '\r';
 	end_sequence[1] = '\n';
-	services[0] = GET_SERVICES_COUNT;
-	services[1] = POST_SERVICES_COUNT;
+	end_sequence[2] = '\r';
 	timeout_start_time = 0;
 	timeout_period = 10 * 1000;
 }
@@ -64,42 +63,43 @@ boolean RestServer::handle_response() {
 	functionality such as reading, parsing and responding to requests.  
  */
 boolean RestServer::read_request(char new_char) {
+	Serial << new_char;
 
 	// if process_state is -1 then start timeout timer, and set process state to 0
 	if (process_state == -1) {
 		timeout_start_time = millis();
 		process_state = 0;
 	}
-
+	
 	if (process_state == 0) {
 		request.add(new_char);
 				
 		// Check if this char is equal to the last char of the end sequence
 	    if (new_char == end_sequence[END_SEQ_LENGTH-1]) {
 		
-			// check for full end sequence
+			// check for full end sequence, if match found change process_state and remove end seq
 			int msg_end_index = request.match_string(end_sequence, request.length-END_SEQ_LENGTH);
-			
-			// if match was found then change process_state and remove end seq
 	        if (msg_end_index != NO_MATCH) {
 				process_state = 1;
 				request.slice(0, request.length-END_SEQ_LENGTH);
-
-				// removed unused content from request
+				// Serial << "[RestServer::read_request] new request received " << request.msg << CRLF;
+	
+				// remove unused content from end of request (after second space)
 				msg_end_index = request.find(' ', 0) + 1;
 	            msg_end_index = request.find(' ', msg_end_index);
 	            if (msg_end_index != NO_MATCH) request.slice(0, msg_end_index); 
-
-				// Serial.print("[RestServer::read_request] request completed: "); Serial.print(request.msg);
-				// Serial.print(" state changed to process_state: "); Serial.println(process_state);
 			}
 		}
-
-		// check if request reached max length, and if so, try to process the request
-		if (request.length >= REQUEST_MAX_LENGTH-1) process_state = 1;
-
+	
+		// check if request reached max length, or has timed out, if so try to process the request
+		if ((request.length >= REQUEST_MAX_LENGTH-1) ||
+		 	((millis() - timeout_start_time > timeout_period) && request.length > 5)){
+				// Serial << "[RestServer::read_request] new request via timeout or length " << request.msg << CRLF << CRLF;
+				process_state = 1;
+		}
+	
 		// check if request has timed out, if so try to process the request
-		if ((millis() - timeout_start_time > timeout_period) && request.length > 5) process_state = 1;			
+		// if ((millis() - timeout_start_time > timeout_period) && request.length > 5) process_state = 1;			
 	}
 
 	if (process_state == 1) return true; 
@@ -134,7 +134,7 @@ void RestServer::parse_request () {
 	        else if (match_index == NO_MATCH){
 
 				// see if an /all request was provided
-		        match_index = request.match_string("/all", root_index);
+		        match_index = request.match_string("/all/", root_index);
 				if (match_index != NO_MATCH) {
 					for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;
 				}
@@ -167,11 +167,11 @@ void RestServer::send_response(Client _client) {
 
 	    for(int i = 0; i < SERVICES_COUNT; i++) {
 			if (resources[i].get || resources[i].post) {
-				get_service(i, current_service);
-				_client << current_service << ": " << resources[i].state << "<br />" << CRLF;
+				_client << get_service(i) << ": " << resources[i].state;
+				if (resources_spec[i].post_enabled) get_form(i, _client);
+				_client << "<br />" << CRLF;
 	        }
 	    }
-
 		send_response();
 		process_state = 4;
 	}
@@ -183,11 +183,11 @@ void RestServer::send_response() {
 
 	    for(int i = 0; i < SERVICES_COUNT; i++) {
 			if (resources[i].get || resources[i].post) {
-				get_service(i, current_service);
-				Serial << current_service << ": " << resources[i].state << "<br />" << CRLF;
+				Serial << get_service(i) << ": " << resources[i].state;
+				if (resources_spec[i].post_enabled) get_form(i);
+				Serial << "<br />" << CRLF;
 	        }
 	    }
-
 		process_state = 4;
 	}
 }
@@ -200,9 +200,120 @@ void RestServer::prepare_for_next_client() {
 			resources[i].get = false;
 			resources[i].post = false;
 		}
-
 		process_state = -1;
 	}
+}
+
+
+/* read_services(int)
+	Processes the services/resources that are part of a request. This method walks
+	through each element from a request and attempts to match each one with the
+	available services on the Arduino. Based on these matches this method also 
+	updates the services_xxx_requested and services_set_updated arrays, which identify what 
+	services were requested or updated by the current request.
+	Accepts: n/a
+	Returns: n/a
+ */
+void RestServer::read_services() {        
+                           
+	int next_start_pos = 0;
+	boolean processing_request = true;
+	
+    while(processing_request == true) {
+
+		// re-initializing the start and end position of current element 
+		int cur_start_pos = next_start_pos;
+		next_start_pos = next_element(cur_start_pos);
+
+		// if next_start_pos returns a NO_MATCH then we have reached end of resource request 
+		if (next_start_pos == NO_MATCH) {
+			next_start_pos = request.length - 1;
+			processing_request = false;
+		}
+
+		// loop through each resource/service name to look for a match
+		for (int i = 0; i < SERVICES_COUNT; i++) {
+			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
+			int match_index = service_match(i, cur_start_pos);
+			if (match_index != NO_MATCH) { 
+				next_start_pos = match_index; 
+				if (next_start_pos >= request.length) break;
+			}
+		}
+		
+    }    
+}
+
+/* service_match(int, int, int)
+	Checks the element at the current location in the request message against 
+	one of the available services on the Arduino. If a SET service is matched
+	then this method also attempts to read a service state.
+	Accepts: an integer that identifies whether the service type being checked is 
+		a get service (0), or a set service (1); the position of the specific service 
+		to be checked within the get or set services arrays; and, the position of the 
+		current element within the request char array.
+	Returns: returns location of the next element within the request, if a service 
+		is found; otherwise, returns NO_MATCH  
+ */
+int RestServer::service_match(int _service_array_index, int _start_pos) {
+	// check that start pos is not a div char, and that it is smaller than the request's length
+	_start_pos = check_start(_start_pos);
+	if (_start_pos == NO_MATCH) return NO_MATCH;
+	int match_index = NO_MATCH;
+
+	// get current resource name and try to match to current request element
+	get_service(_service_array_index, current_service);
+	match_index = request.match_string(current_service, _start_pos);
+
+	if (match_index != NO_MATCH) { 
+		resources[_service_array_index].get = true;
+		
+		// if (resources_spec[_service_array_index].post_enabled) {
+		if (resources_spec[_service_array_index].post_enabled && request_type == POST_SERVICES) {
+			match_index = state_match(_service_array_index, (match_index + 1));	
+		}
+	}
+
+	return match_index;
+}
+
+/* state_match(int, int, int)
+	Checks the element at the current location in the request message to determine if
+	it is a state message. If state message is found it reads the message into the
+	service_set_state array.
+	Accepts: an integer that identifies whether the service type being checked is 
+		a get service (0), or a set service (1); the position of the specific service 
+		to be checked within the get or set services arrays; and, the position of the 
+		current element within the request char array.
+	Returns: returns location of the next element within the request, if a state message 
+		is found; otherwise, returns NO_MATCH  
+ */
+int RestServer::state_match(int _service_array_index, int _start_pos) {
+	// check if for a state message (a number following an UPDATE-capable service)
+	int new_number = check_for_state_msg(_start_pos);
+
+	// if match exists, then (1) set updated array to true, (2) update state array 
+	if (new_number != NO_MATCH) {
+		resources[_service_array_index].post = true;
+		resources[_service_array_index].state = new_number;
+
+		// check the position of the next element
+		_start_pos = next_element(_start_pos);
+		if (_start_pos == NO_MATCH) _start_pos = request.length;
+	}  
+	return _start_pos;
+}
+
+void RestServer::get_form(int resource_num) {		
+	Serial << "<form style='display:inline;' action='/" << get_service(resource_num) << "' method='POST'>";
+	Serial << ", update: <input type='text' name='" << get_service(resource_num) << "'/>";
+	Serial << "<input type='submit' value='update state'/></form>";
+}
+
+void RestServer::get_form(int resource_num, Client _client) {		
+	_client << "<form style='display:inline;' action='/" << get_service(resource_num) << "' method='POST'>";
+	_client << ", update: <input type='text' name='" << get_service(resource_num) << "'/>";
+	_client << "<input type='submit' value='update state'/></form>";
 }
 
 /********************************************************
@@ -287,106 +398,6 @@ int RestServer::check_start_single(int _start) {
 	}
 	return _start;	
 }
-
-/* read_services(int)
-	Processes the services/resources that are part of a request. This method walks
-	through each element from a request and attempts to match each one with the
-	available services on the Arduino. Based on these matches this method also 
-	updates the services_xxx_requested and services_set_updated arrays, which identify what 
-	services were requested or updated by the current request.
-	Accepts: n/a
-	Returns: n/a
- */
-void RestServer::read_services() {        
-                           
-	int next_start_pos = 0;
-	boolean processing_request = true;
-	
-    while(processing_request == true) {
-
-		// re-initializing the start and end position of current element 
-		int cur_start_pos = next_start_pos;
-		next_start_pos = next_element(cur_start_pos);
-
-		// if next_start_pos returns a NO_MATCH then we have reached end of resource request 
-		if (next_start_pos == NO_MATCH) {
-			next_start_pos = request.length - 1;
-			processing_request = false;
-		}
-
-		// loop through each resource/service name to look for a match
-		for (int i = 0; i < SERVICES_COUNT; i++) {
-			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
-			int match_index = service_match(i, cur_start_pos);
-			if (match_index != NO_MATCH) { 
-				next_start_pos = match_index; 
-				if (next_start_pos >= request.length) break;
-			}
-		}
-		
-    }    
-}
-
-/* service_match(int, int, int)
-	Checks the element at the current location in the request message against 
-	one of the available services on the Arduino. If a SET service is matched
-	then this method also attempts to read a service state.
-	Accepts: an integer that identifies whether the service type being checked is 
-		a get service (0), or a set service (1); the position of the specific service 
-		to be checked within the get or set services arrays; and, the position of the 
-		current element within the request char array.
-	Returns: returns location of the next element within the request, if a service 
-		is found; otherwise, returns NO_MATCH  
- */
-int RestServer::service_match(int _service_array_index, int _start_pos) {
-	// check that start pos is not a div char, and that it is smaller than the request's length
-	_start_pos = check_start(_start_pos);
-	if (_start_pos == NO_MATCH) return NO_MATCH;
-	int match_index = NO_MATCH;
-
-	// get current resource name and try to match to current request element
-	get_service(_service_array_index, current_service);
-	match_index = request.match_string(current_service, _start_pos);
-
-	if (match_index != NO_MATCH) { 
-		resources[_service_array_index].get = true;
-		
-		if (resource_list[_service_array_index].post_enabled) {
-		// if (resource_list[_service_array_index].post_enabled && request_type == POST_SERVICES) {
-			match_index = state_match(_service_array_index, (match_index + 1));	
-		}
-	}
-
-	return match_index;
-}
-
-/* state_match(int, int, int)
-	Checks the element at the current location in the request message to determine if
-	it is a state message. If state message is found it reads the message into the
-	service_set_state array.
-	Accepts: an integer that identifies whether the service type being checked is 
-		a get service (0), or a set service (1); the position of the specific service 
-		to be checked within the get or set services arrays; and, the position of the 
-		current element within the request char array.
-	Returns: returns location of the next element within the request, if a state message 
-		is found; otherwise, returns NO_MATCH  
- */
-int RestServer::state_match(int _service_array_index, int _start_pos) {
-	// check if for a state message (a number following an UPDATE-capable service)
-	int new_number = check_for_state_msg(_start_pos);
-
-	// if match exists, then (1) set updated array to true, (2) update state array 
-	if (new_number != NO_MATCH) {
-		resources[_service_array_index].post = true;
-		resources[_service_array_index].state = new_number;
-
-		// check the position of the next element
-		_start_pos = next_element(_start_pos);
-		if (_start_pos == NO_MATCH) _start_pos = request.length;
-	}  
-	return _start_pos;
-}
-
 
 
 

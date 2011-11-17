@@ -11,12 +11,16 @@ class RestServer {
 
 	private:
 		Message request;		// Current request message
-		int process_state;		// state of RestServer based on following criteria
-								// 	-1: waiting for client	 	2: processing request 
-								//	 0: reading request		 	3: sending response
-								//	 1: parsing request			4: cleaning up for next request
+		int process_state;		/* Current state of RestServer:
+								 	-1: waiting for client	 	2: processing request 
+									 0: reading request		 	3: sending response
+									 1: parsing request			4: cleaning up for next request
+								 */	
 
-		int request_type;
+		int request_type;		/* Current request types:
+									0: GET request
+									1: POST request
+								 */
 		
 		char end_sequence[ELEMENT_DIV_LENGTH + 1];	// request end sequence match chars
 		char div_chars[END_SEQ_LENGTH + 1];			// element division chars
@@ -36,21 +40,15 @@ class RestServer {
 		int service_match(int, int);
 		int state_match(int, int);
 
+		void get_form(int);
+		void get_form(int, Client);
+
 		int next_element(int);
 		int check_for_state_msg(int);
 		int check_start(int);
 		int check_start_single(int);
 		
-		// void printP(const prog_uchar *str, Client _client);
-
 	public:
-		int services[SERVICE_TYPES];
-		int service_get_state [GET_SERVICES_COUNT];
-		int service_set_state [POST_SERVICES_COUNT];
-		boolean service_get_requested [GET_SERVICES_COUNT];
-		boolean service_set_requested [POST_SERVICES_COUNT];
-		boolean service_set_updated [ELEMENT_DIV_LENGTH];
-		
 		struct Resource {
 				int state;
 				boolean get;
