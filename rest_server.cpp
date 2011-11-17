@@ -177,31 +177,24 @@ void RestServer::process() {
 
 void RestServer::send_response(Client _client) {
 	if (process_state == 3) {
-	    _client.println("HTTP/1.1 200 OK");
-	    _client.println("Content-Type: text/html");
-	    _client.println();
+        _client << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
 
 	    // output the value of each analog input pin
-	    for(int i = 0; i < 6; i++) {
+	    for(int i = 0; i < GET_SERVICES_COUNT; i++) {
 	        if (service_get_requested[i]) {
 				get_service_GET(i, current_service);
-	            _client.print(current_service);
-	            _client.print(": ");
-	            _client.print(service_get_state[i]);
-	            _client.println("<br />");
+	            _client << current_service << ": " << service_get_state[i] << "<br />" << CRLF;
 	        }
 	    }
 
 	    // output the value of each analog input pin
-	    for(int i = 0; i < 4; i++) {
+	    for(int i = 0; i < POST_SERVICES_COUNT; i++) {
 	        if (service_set_requested[i]) {
 	            get_service_POST(i, current_service);
-	            _client.print(current_service);
-	            _client.print(": ");
-	            _client.print(service_set_state[i]);
-	            _client.println("<br />");
+	            _client << current_service << ": " << service_set_state[i] << "<br />" << CRLF;
 	        }
 	    }
+
 		send_response();
 		process_state = 4;
 		// Serial.print("[RestServer::send_response(client)] state change to process_state: "); Serial.println(process_state);	
@@ -210,29 +203,21 @@ void RestServer::send_response(Client _client) {
 
 void RestServer::send_response() {
 	if (process_state == 3) {
-	    Serial.println("HTTP/1.1 200 OK");
-	    Serial.println("Content-Type: text/html");
-	    Serial.println();
+        Serial << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
 
 	    // output the value of each analog input pin
-	    for(int i = 0; i < 6; i++) {
+	    for(int i = 0; i < GET_SERVICES_COUNT; i++) {
 	        if (service_get_requested[i]) {
 				get_service_GET(i, current_service);
-	            Serial.print(current_service);
-	            Serial.print(": ");
-	            Serial.print(service_get_state[i]);
-	            Serial.println("<br />");
+	            Serial << current_service << ": " << service_get_state[i] << "<br />" << CRLF;
 	        }
 	    }
 
 	    // output the value of each analog input pin
-	    for(int i = 0; i < 4; i++) {
+	    for(int i = 0; i < POST_SERVICES_COUNT; i++) {
 	        if (service_set_requested[i]) {
 	            get_service_POST(i, current_service);
-	            Serial.print(current_service);
-	            Serial.print(": ");
-	            Serial.print(service_set_state[i]);
-	            Serial.println("<br />");
+	            Serial << current_service << ": " << service_set_state[i] << "<br />" << CRLF;
 	        }
 	    }
 		process_state = 4;
@@ -445,7 +430,6 @@ int RestServer::state_match(int _service_type, int _service_array_index, int _st
 	}  
 	return _start_pos;
 }
-
 
 
 

@@ -5,6 +5,14 @@
 #include "config_rest.h"
 #include <utility/message.h>
 #include <Ethernet.h>
+#include "../streaming/Streaming.h"
+#include <avr/pgmspace.h>
+// #include <string.h>
+// #include <stdlib.h>
+
+
+// #define P(name)   static const prog_uchar name[] PROGMEM
+// #define CRLF "\r\n"
 
 class RestServer {
 
@@ -39,6 +47,8 @@ class RestServer {
 		int check_for_state_msg(int);
 		int check_start(int);
 		int check_start_single(int);
+		
+		// void printP(const prog_uchar *str, Client _client);
 
 	public:
 		int services[SERVICE_TYPES];
@@ -56,5 +66,7 @@ class RestServer {
 		boolean handle_response(); 			// sends response to Serial client
 
 };
+
+
 
 #endif // endif __Restful_server_h__

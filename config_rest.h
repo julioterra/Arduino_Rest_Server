@@ -2,6 +2,8 @@
 #define __config_rest__
 
 #include "WProgram.h"
+// #include <avr/pgmspace.h>
+// #include <Ethernet.h>
 
 #define REQUEST_MAX_LENGTH 		 75		// maximum length of incoming requests
 #define NAME_LENGTH				 15		// maximum length of service names
@@ -33,6 +35,12 @@ const char services_set_names [POST_SERVICES_COUNT][NAME_LENGTH] = {"output_1",
 
 void get_service_GET(int, char*);		// method that sets a char array with a get service
 void get_service_POST(int, char*);		// method that sets a char array with a set service 
+
+#define CRLF "\r\n"
+
+// #define P(name) static const prog_uchar name[] PROGMEM
+// void printPclient(const prog_uchar *str, Client _client);
+// void printPserial(const prog_uchar *str);
 
 #define SERVICE_TYPES		 	 2		// number of service types
 #define GET_SERVICES			 0		// set GET_SERVICES equals 0
