@@ -6,35 +6,50 @@
 #include <utility/message.h>
 #include <../streaming/Streaming.h>
 #include <Ethernet.h>
+#include <string.h>
 
 class RestServer {
 
 	private:
-		Message request;		// Current request message
-		int process_state;		/* Current state of RestServer:
-								 	-1: waiting for client	 	2: processing request 
-									 0: reading request		 	3: sending response
-									 1: parsing request			4: cleaning up for next request
-								 */	
-
-		int request_type;		/* Current request types:
-									0: GET request
-									1: POST request
-								 */
+		#define POST_BUFFER_LENGTH	8
+		Message request;					// Current request message
 		
-		char end_sequence[ELEMENT_DIV_LENGTH + 1];	// request end sequence match chars
-		char div_chars[END_SEQ_LENGTH + 1];			// element division chars
+		/* Current state of RestServer - -1: waiting for client, 0: reading verb, 
+					1: reading request, 2: parsing request, 3: processing request, 
+					4: sending response, 5: cleaning up for next request */	
+		int process_state;
+		
+		/* Current request types - 0: GET request, 1: POST request */
+		int request_type;				
+
+ 		char post_buffer [POST_BUFFER_LENGTH + 1];	// Temporary buffer
+		char eol_sequence[EOL_LENGTH + 1];			// request end sequence match chars
+		char eoh_sequence[EOH_LENGTH + 1];			// request end sequence match chars
+		char div_chars[DIV_ELEMENTS + 1];			// element division chars
 		char current_service [NAME_LENGTH];			// name of the current service
 
 		long timeout_start_time;					// timeout timer start time
 		int timeout_period;							// timeout timer interval period
+		
+		boolean ready_to_read;
+		boolean post_length_found;
+		boolean post_length_read;
+		int post_length_expected;
+		int post_length_actual;
+		boolean header_read;
+		boolean body_read;
 
 		boolean read_request(char);
+		void get_verb(char);
 		void parse_request();
 		void process();
 		void send_response(Client);
 		void send_response();
 		void prepare_for_next_client();
+
+		boolean id_eoh(char);
+		boolean id_post_length(char new_char);
+		void check_timer();
 
 		void read_services();
 		int service_match(int, int);
@@ -47,8 +62,18 @@ class RestServer {
 		int check_for_state_msg(int);
 		int check_start(int);
 		int check_start_single(int);
+		boolean div_found(char);
+		boolean eol_found(char);
 		
 	public:
+		#define WAITING				-1
+		#define READ_VERB			 0
+		#define READ_RESOURCE		 1	
+		#define PARSE				 2
+		#define PROCESS				 3
+		#define RESPOND				 4
+		#define RESET				 5
+
 		struct Resource {
 				int state;
 				boolean get;

@@ -4,7 +4,7 @@
 #include "WProgram.h"
 #include <avr/pgmspace.h>
 
-#define REQUEST_MAX_LENGTH 		 350		// maximum length of incoming requests
+#define REQUEST_MAX_LENGTH 		 75		// maximum length of incoming requests
 #define NAME_LENGTH				 15		// maximum length of service names
 #define CALLBACK		 	  	 1		// set to 1 if respond() callback will be used
 #define SERVICES_COUNT		 	 10
@@ -42,6 +42,7 @@ const struct Resource_description resources_spec [SERVICES_COUNT] = {{"output_1"
 
 void get_service(int, char*);			// method that sets a char array with a get service
 char *get_service(int);					// method that sets a char array with a get service
+int str_to_i(char*, int, int);
 
 // declare a carriage return and line feed constant
 #define CRLF "\r\n"
@@ -52,8 +53,9 @@ char *get_service(int);					// method that sets a char array with a get service
 
 #define NO_MATCH				-1		// set NO_MATCH to equals -1
 
-#define END_SEQ_LENGTH			 3		// set END_SEQ_LENGTH equals 0
-#define ELEMENT_DIV_LENGTH  	 2		// set ELEMENT_DIV_LENGTH equals 0
+#define DIV_ELEMENTS			 3		// set DIV_ELEMENTS equals 0
+#define EOL_LENGTH  	 		 2		// set EOL_LENGTH equals 0
+#define EOH_LENGTH  	 		 4		// set EOL_LENGTH equals 0
 
 // static string declaration method
 // #define P(name)   static const prog_uchar name[] PROGMEM

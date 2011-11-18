@@ -4,6 +4,11 @@
  *	Initializes the msg and length variables for new instance of the
  *	Message class.
  */
+Message::Message (int msg_size) {
+	for (int i = 0; i < REQUEST_MAX_LENGTH; i++) { msg[i] = '\0'; }
+	length = 0;
+}
+
 Message::Message () {
 	for (int i = 0; i < REQUEST_MAX_LENGTH; i++) { msg[i] = '\0'; }
 	length = 0;
@@ -14,7 +19,7 @@ Message::Message () {
  * 	has reached its maximum length then the new letter are ignored. 
  */
 void Message::add (char _new_char) {
-	if (length == REQUEST_MAX_LENGTH) return;
+	if (length >= REQUEST_MAX_LENGTH) return;
 	msg[length] = _new_char;
 	length += 1;
 }
@@ -90,16 +95,17 @@ int Message::match_string(char* _char_search, int _start_index) {
  *	otherwise the method returns the number as an int.
  */
 int Message::to_i(int _start_index, int end_index) {
-  int return_num = 0;  
-  int reverse_counter = (end_index - _start_index);
-
-  for(int i = 0; i <= (end_index - _start_index); i++) {
-      char cur_char = msg[i+_start_index];      
-      if (int(cur_char) < 48 || int(cur_char) > 57) { return -1; }
-      int mult = 1;
-      for(int j = 0; j < reverse_counter; j++) { mult = mult * 10; }
-      return_num += (int(cur_char)-48) * mult; 
-      reverse_counter--;
-  }
-  return return_num;
+	// int return_num = 0;  
+	// int reverse_counter = (end_index - _start_index);
+	// 
+	// for(int i = 0; i <= (end_index - _start_index); i++) {
+	//     char cur_char = msg[i+_start_index];      
+	//     if (int(cur_char) < 48 || int(cur_char) > 57) { return -1; }
+	//     int mult = 1;
+	//     for(int j = 0; j < reverse_counter; j++) { mult = mult * 10; }
+	//     return_num += (int(cur_char)-48) * mult; 
+	//     reverse_counter--;
+	// }
+	// return return_num;
+  return str_to_i(msg, _start_index, end_index);
 }

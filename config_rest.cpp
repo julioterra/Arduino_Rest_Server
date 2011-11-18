@@ -14,6 +14,21 @@ char *get_service(int index) {
 	return string;
 }
 
+int str_to_i(char* string, int _start_index, int end_index) {
+  int return_num = 0;  
+  int reverse_counter = (end_index - _start_index);
+
+  for(int i = 0; i <= (end_index - _start_index); i++) {
+      char cur_char = string[i+_start_index];      
+      if (int(cur_char) < 48 || int(cur_char) > 57) { return -1; }
+      int mult = 1;
+      for(int j = 0; j < reverse_counter; j++) { mult = mult * 10; }
+      return_num += (int(cur_char)-48) * mult; 
+      reverse_counter--;
+  }
+  return return_num;
+}
+
 // char *getPstring(const prog_uchar *str, boolean next_segment) {
 // 	char static buffer[32];
 // 	int static offset;
