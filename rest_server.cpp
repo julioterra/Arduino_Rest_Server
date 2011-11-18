@@ -13,13 +13,11 @@ RestServer::RestServer(){
 	div_chars[0] = '/'; div_chars[1] = ' '; div_chars[2] = '=';
 	eol_sequence[0] = '\r'; eol_sequence[1] = '\n';
 	eoh_sequence[0] = '\r'; eoh_sequence[1] = '\n'; eoh_sequence[2] = '\r'; eoh_sequence[3] = '\n';
-	timeout_start_time = 0; timeout_period = 5 * 1000;
-	ready_to_read = false;
-	// header_read = false;
-	// body_read = false;
+	timeout_start_time = 0; timeout_period = 2 *1000;
+	post_ready_to_read = false;
 }
 
-boolean RestServer::handle_requests(Client _client) {
+boolean RestServer::handle_requests(Stream &_client) {
 	// Serial << "[RestServer::handle_requests] current state " << process_state << CRLF;
 	if (_client.available()) read_request(_client.read());
 	parse_request();
@@ -30,37 +28,18 @@ boolean RestServer::handle_requests(Client _client) {
 	else return false;
 }
 
-boolean RestServer::handle_requests() {
-	if (Serial.available()) read_request(Serial.read());
-	parse_request();
-	process();
-	
-	check_timer();
-	if (process_state == PROCESS) return true; 
-	else return false;
-}
-
 void RestServer::respond() {
 	if (process_state == PROCESS) {
 		process_state = RESPOND;
 	}
 }
 
-boolean RestServer::handle_response(Client _client) {
+boolean RestServer::handle_response(Stream &_client) {
 	send_response(_client);
 	prepare_for_next_client();	
 	if (process_state == WAITING) return true;
 	else return false;
 }
-
-boolean RestServer::handle_response() {
-	send_response();
-	prepare_for_next_client();	
-	if (process_state == WAITING) return true; 
-	else return false;
-}
-
-
 
 /*
  TOP-LEVEL METHODS
@@ -68,7 +47,7 @@ boolean RestServer::handle_response() {
 	functionality such as reading, parsing and responding to requests.  
  */
 boolean RestServer::read_request(char new_char) {
-	// Serial << new_char;
+	Serial << new_char;
 
 	if (process_state == WAITING) {
 		if (request.length == 0) timeout_start_time = millis();
@@ -76,6 +55,7 @@ boolean RestServer::read_request(char new_char) {
 	} 
 
 	if (process_state == READ_VERB) get_verb(new_char);	
+
 	else if (process_state == READ_RESOURCE) {
 
 		if (request_type == GET_SERVICES) {
@@ -97,10 +77,9 @@ boolean RestServer::read_request(char new_char) {
 		
 		if (request_type == POST_SERVICES) {
 			if(!post_length_found) {
-				if(id_post_length(new_char) == true) {
+				if(length_match_found(new_char) == true) {
 					post_length_found = true;
-					for (int i = 0; i < POST_BUFFER_LENGTH; i++) post_buffer[i] = '\0';
-					request.clear();
+					// request.clear();
 				}				
 			}
 
@@ -108,29 +87,25 @@ boolean RestServer::read_request(char new_char) {
 				if (div_found(new_char) || eol_found(new_char) && request.length > 0) {
 					post_length_expected = request.to_i(0, request.length-1);
 					if (post_length_expected != NO_MATCH) post_length_read = true;
-					request.clear();
-					
-					Serial << "[RestServer::read_request] post message length " << post_length_expected << CRLF;					
+					request.clear();					
+					// Serial << "[RestServer::read_request] post message length " << post_length_expected << CRLF;					
 				} 
 				else request.add(new_char);								
 			} 
 			
-			else if (post_length_read && !ready_to_read) {
-				if (id_eoh(new_char) == true) {
-					ready_to_read = true;
-					Serial << "[RestServer::read_request] ready to read " << CRLF;
+			else if (post_length_read && !post_ready_to_read) {
+				if (eoh_match_found(new_char) == true) {
+					post_ready_to_read = true;
+					// Serial << "[RestServer::read_request] ready to read " << CRLF;
 				} 					
 			}
 
-			else if (ready_to_read) {
-				// Serial << "[RestServer::read_request] ready to read " << CRLF;
-				// request.add(new_char);
-				
-				Serial << "[RestServer::read_request] reading post message " << request.msg  << CRLF;					
+			else if (post_ready_to_read) {
+				// Serial << "[RestServer::read_request] reading post message " << request.msg  << CRLF;					
 				request.add(new_char);
 				post_length_actual++;
 				if (post_length_expected <= post_length_actual) {
-					Serial << "[RestServer::read_request] POST message read fully " << request.msg  << CRLF;					
+					// Serial << "[RestServer::read_request] POST message read fully " << request.msg  << CRLF;					
 					process_state = PARSE;
 				}
 				
@@ -140,28 +115,6 @@ boolean RestServer::read_request(char new_char) {
 	}
 
 	if (process_state == PARSE) return true; 
-	else return false;
-}
-
-boolean RestServer::id_eoh(char new_char) {
-	for (int i = 0; i < 3; i++) post_buffer[i] = post_buffer[i+1];
-	post_buffer[3] = new_char;
-
-	if(strncmp(post_buffer, eoh_sequence, 4) == 0) {
-		Serial << "[RestServer::id_eoh] returning true " << CRLF;
-		return true;
-	}
-	else return false;	
-}
-
-boolean RestServer::id_post_length(char new_char) {
-	for (int i = 0; i < POST_BUFFER_LENGTH - 1; i++) post_buffer[i] = post_buffer[i+1];
-	post_buffer[POST_BUFFER_LENGTH - 1] = new_char;
-	
-	if(strncmp(post_buffer, "Length: ", 8) == 0) {
-		Serial << "[RestServer::id_post_length] returning true " << CRLF;
-		return true;		
-	}
 	else return false;
 }
 
@@ -190,14 +143,6 @@ void RestServer::get_verb(char new_char) {
 	}
 }
 
-void RestServer::check_timer() {
-	if (millis() - timeout_start_time > timeout_period) {
-		process_state = RESET;			
-		prepare_for_next_client();
-	}
-}
-
-
 void RestServer::parse_request() {
 	if (process_state == PARSE) {
 	    int root_index = 0;
@@ -206,7 +151,7 @@ void RestServer::parse_request() {
         int match_index = request.match_string("/", root_index);
         if (match_index != NO_MATCH && request.length == 1) { 
 			for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;				
-			Serial << "[RestServer::parse_request] matched root " << request.msg << CRLF;
+			// Serial << "[RestServer::parse_request] matched root " << request.msg << CRLF;
 			process_state = PROCESS;
 			return;
         } 
@@ -215,7 +160,7 @@ void RestServer::parse_request() {
         match_index = request.match_string("/all/", root_index);
 		if (match_index != NO_MATCH) {
 			for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;
-			Serial << "[RestServer::parse_request] matched /all " << CRLF;
+			// Serial << "[RestServer::parse_request] matched /all " << CRLF;
 		}
 
 		// look for individual service/resource requests
@@ -227,7 +172,7 @@ void RestServer::parse_request() {
 
 void RestServer::process() {
 	if (process_state == PROCESS) {
-		Serial << "[RestServer::process] current msg: " << request.msg << CRLF;	
+		// Serial << "[RestServer::process] current msg: " << request.msg << CRLF;	
 
 		boolean service_active = false;
 		for (int i = 0; i < SERVICES_COUNT; i++) {
@@ -241,7 +186,7 @@ void RestServer::process() {
 	}
 }
 
-void RestServer::send_response(Client _client) {
+void RestServer::send_response(Stream &_client) {
 	if (process_state == RESPOND) {
 		_client << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
 
@@ -252,22 +197,7 @@ void RestServer::send_response(Client _client) {
 				_client << "<br />" << CRLF;
 	        }
 	    }
-		send_response();
-		process_state = RESET;
-	}
-}
-
-void RestServer::send_response() {
-	if (process_state == RESPOND) {
-		Serial << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
-
-	    for(int i = 0; i < SERVICES_COUNT; i++) {
-			if (resources[i].get || resources[i].post) {
-				Serial << get_service(i) << ": " << resources[i].state;
-				if (resources_spec[i].post_enabled) get_form(i);
-				Serial << "<br />" << CRLF;
-	        }
-	    }
+		// send_response();
 		process_state = RESET;
 	}
 }
@@ -275,15 +205,12 @@ void RestServer::send_response() {
 void RestServer::prepare_for_next_client() {
 	if (process_state == RESET) {
 		request.clear();
-		ready_to_read = false;
+		post_ready_to_read = false;
+
 		post_length_found = false;
 		post_length_read = false;
 		post_length_expected = 0;
 		post_length_actual = 0;
-		for (int i = 0; i < POST_BUFFER_LENGTH; i++) post_buffer[i] = '\0';
-
-		// header_read = false;
-		// body_read = false;
 
 	 	for (int i = 0; i < SERVICES_COUNT; i++) {
 			resources[i].get = false;
@@ -292,7 +219,6 @@ void RestServer::prepare_for_next_client() {
 		process_state = WAITING;
 	}
 }
-
 
 /* read_services(int)
 	Processes the services/resources that are part of a request. This method walks
@@ -308,7 +234,7 @@ void RestServer::read_services() {
 	int next_start_pos = 0;
 	boolean processing_request = true;
 
-	Serial << "[RestServer::read_services] current msg: " << request.msg << CRLF;	
+	// Serial << "[RestServer::read_services] current msg: " << request.msg << CRLF;	
 	
     while(processing_request == true) {
 
@@ -324,7 +250,7 @@ void RestServer::read_services() {
 
 		// loop through each resource/service name to look for a match
 		for (int i = 0; i < SERVICES_COUNT; i++) {
-			Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
+			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
 			int match_index = service_match(i, cur_start_pos);
 			if (match_index != NO_MATCH) { 
 				next_start_pos = match_index; 
@@ -353,12 +279,11 @@ int RestServer::service_match(int _service_array_index, int _start_pos) {
 	int match_index = NO_MATCH;
 
 	// get current resource name and try to match to current request element
-	get_service(_service_array_index, current_service);
-	match_index = request.match_string(current_service, _start_pos);
+	match_index = request.match_string(get_service(_service_array_index), _start_pos);
 
 	if (match_index != NO_MATCH) { 
 		resources[_service_array_index].get = true;
-		Serial << "[RestServer::service_match] matched service " << current_service << CRLF;
+		// Serial << "[RestServer::service_match] matched service " << current_service << CRLF;
 		
 		// if (resources_spec[_service_array_index].post_enabled) {
 		if (resources_spec[_service_array_index].post_enabled && request_type == POST_SERVICES) {
@@ -396,13 +321,7 @@ int RestServer::state_match(int _service_array_index, int _start_pos) {
 	return _start_pos;
 }
 
-void RestServer::get_form(int resource_num) {		
-	Serial << "<form style='display:inline;' action='/" << get_service(resource_num) << "' method='POST'>";
-	Serial << ", update: <input type='text' name='" << get_service(resource_num) << "'/>";
-	Serial << "<input type='submit' value='update state'/></form>";
-}
-
-void RestServer::get_form(int resource_num, Client _client) {		
+void RestServer::get_form(int resource_num, Stream &_client) {		
 	_client << "<form style='display:inline;' action='/" << get_service(resource_num) << "' method='POST'>";
 	_client << ", update: <input type='text' name='" << get_service(resource_num) << "'/>";
 	_client << "<input type='submit' value='update state'/></form>";
@@ -484,11 +403,6 @@ int RestServer::check_start_single(int _start) {
 	// check if start pos is equal to or greater then request length return NO_MATCH
 	if (_start >= request.length) return NO_MATCH;
 	
-	// go throug div_char array to check start pos for div chars, if found update start pos
-	// for (int i = 0; i < DIV_ELEMENTS; i ++ ) {
-	// 	if (request.msg[_start] == div_chars[i]) return (_start + 1);
-	// }	
-	
 	if (div_found(request.msg[_start])) return _start + 1;
 	else return _start;	
 }
@@ -508,6 +422,37 @@ boolean RestServer::eol_found(char _new_char) {
 	}	
 	return false;	
 }
+
+boolean RestServer::eoh_match_found(char new_char) {
+	int match_string_length = 4;
+	for (int i = 0; i < match_string_length - 1; i++) request.msg[i] = request.msg[i+1];
+	request.msg[match_string_length - 1] = new_char;
+
+	if(strncmp(request.msg, eoh_sequence, match_string_length) == 0) {
+		// Serial << "[RestServer::eoh_match_found] returning true " << CRLF;
+		request.clear();
+		return true;
+	}
+	else return false;	
+}
+
+boolean RestServer::length_match_found(char new_char) {
+	int match_string_length = 8;
+	for (int i = 0; i < match_string_length - 1; i++) request.msg[i] = request.msg[i+1];
+	request.msg[match_string_length - 1] = new_char;
+	
+	if(strncmp(request.msg, "Length: ", match_string_length) == 0) {
+		// Serial << "[RestServer::length_match_found] returning true " << CRLF;
+		request.clear();
+		return true;		
+	}
+	else return false;
+}
+
+void RestServer::check_timer() {
+	if (millis() - timeout_start_time > timeout_period) process_state = RESET;
+}
+
 
 
 

@@ -9,18 +9,18 @@
 #define CALLBACK		 	  	 1		// set to 1 if respond() callback will be used
 #define SERVICES_COUNT		 	 10
 
-typedef struct Resource_range {
+typedef struct Resource_range_t {
 	int min;
 	int max;
 };
 
-struct Resource_description {
+typedef struct Resource_description_t {
 	char name [NAME_LENGTH]; 	/* name of resource */
 	boolean post_enabled;		/* flag that notes whether it supports post requests */
-	Resource_range range;		/* resource range for service requests and mapping */
+	Resource_range_t range;		/* resource range for service requests and mapping */
 };
 
-const struct Resource_description resources_spec [SERVICES_COUNT] = {{"output_1", 	false, 	{0, 1024}}, 
+const Resource_description_t resources_spec [SERVICES_COUNT] = {{"output_1", 	false, 	{0, 1024}}, 
 																	{"output_2", 	false, 	{0, 1024}}, 
 																	{"output_3", 	false, 	{0, 1024}}, 
 																	{"output_4", 	false, 	{0, 1024}}, 
@@ -40,9 +40,7 @@ const struct Resource_description resources_spec [SERVICES_COUNT] = {{"output_1"
  want to change the functionality of the RestServer library.
  **************************************************************************/
 
-void get_service(int, char*);			// method that sets a char array with a get service
 char *get_service(int);					// method that sets a char array with a get service
-int str_to_i(char*, int, int);
 
 // declare a carriage return and line feed constant
 #define CRLF "\r\n"
@@ -57,9 +55,12 @@ int str_to_i(char*, int, int);
 #define EOL_LENGTH  	 		 2		// set EOL_LENGTH equals 0
 #define EOH_LENGTH  	 		 4		// set EOL_LENGTH equals 0
 
+
+// void get_service(int, char*);			// method that sets a char array with a get service
+// int str_to_i(char*, int, int);
+
 // static string declaration method
 // #define P(name)   static const prog_uchar name[] PROGMEM
 // char* getPstring(const prog_uchar *str, boolean next_segment);
-
 	
 #endif // #endif __config_rest__
