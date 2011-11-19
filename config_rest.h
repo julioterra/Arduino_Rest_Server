@@ -9,15 +9,17 @@
 #define CALLBACK		 	  	 1		// set to 1 if respond() callback will be used
 #define SERVICES_COUNT		 	 10
 
+
 typedef struct Resource_range_t {
 	int min;
 	int max;
 };
 
+// data structure that holds resource description defined by user
 typedef struct Resource_description_t {
-	char name [NAME_LENGTH]; 	/* name of resource */
-	boolean post_enabled;		/* flag that notes whether it supports post requests */
-	Resource_range_t range;		/* resource range for service requests and mapping */
+	char name [NAME_LENGTH]; 	// name of resource
+	boolean post_enabled;		// flag that notes whether resource supports post requests
+	Resource_range_t range;		// resource range
 };
 
 const Resource_description_t resources_spec [SERVICES_COUNT] = {{"output_1", 	false, 	{0, 1024}}, 

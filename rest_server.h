@@ -13,22 +13,18 @@
 class RestServer {
 
 	private:
-		Message request;					// Current request message
-		
-		/* Current state of RestServer - -1: waiting for client, 0: reading verb, 
-					1: reading request, 2: parsing request, 3: processing request, 
-					4: sending response, 5: cleaning up for next request */	
-		int process_state;
-		
-		/* Current request types - 0: GET request, 1: POST request */
-		int request_type;				
+		Message request;						// holds the resource requests, and temporary data during 
+												// the request reading process
+			
+		int process_state;						// holds state of RestServer		
+		int request_type;						// holds request type (GET or POST)
 
-		char eol_sequence[EOL_LENGTH + 1];			// request end sequence match chars
-		char eoh_sequence[EOH_LENGTH + 1];			// request end sequence match chars
-		char div_chars[DIV_ELEMENTS + 1];			// element division chars
+		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
+		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
+		char div_chars[DIV_ELEMENTS + 1];		// element division chars
 
-		long timeout_start_time;					// timeout timer start time
-		int timeout_period;							// timeout timer interval period
+		long timeout_start_time;				// start time for timeout timer 
+		int timeout_period;						// interval period for timeout timer 
 		
 		boolean post_ready_to_read;
 		boolean post_length_found;
