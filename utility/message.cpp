@@ -78,13 +78,12 @@ int Message::match_string(char* _char_search, int _start_index) {
     int location = -1;
 
     if (length < length_search + _start_index) return -1;
+
     for (int i = 0; i < length_search; i++) {       
-      if (_char_search[i] == msg[i+_start_index]) {
-           location = i + _start_index;
-        } else {
-            return -1;
-        }
+		if (_char_search[i] == msg[i+_start_index]) location = i + _start_index;
+		else return -1;
     }
+
     return location;  
 }
 

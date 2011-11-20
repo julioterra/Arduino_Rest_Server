@@ -3,7 +3,9 @@
 
 #include "WProgram.h"
 #include "config_rest.h"
-#include <stdlib.h>
+// #include <stdlib.h>
+#include <string.h>
+#include <../Streaming/Streaming.h>
 
 class Message {
 

@@ -8,8 +8,8 @@
 #include "utility/message.h"
 
 #include <string.h>
+
 #include <../Streaming/Streaming.h>
-#include <../Flash/Flash.h>
 
 class RestServer {
 
@@ -21,9 +21,13 @@ class RestServer {
 															
 		byte process_state;						// holds state of RestServer		
 		byte request_type;						// holds request type (GET or POST)
-		byte options;
-		#define CALLBACK			1			
-		#define POST_WITH_GET		2
+		byte server_options;					// each bit holds a separate server option including:
+		#define CALLBACK			1			//	1. callback enabled (B00000001)
+		#define POST_WITH_GET		2			//	2. post with get and form not displayed (B00000010)
+
+		byte request_options;					// each bit holds a separate request option including:	
+		#define RESOURCE_REQ		1			//	1. resource description request (B00000001)
+		#define JSON_FORMAT			2			// 	2. return json format (B00000010)
 
 		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
 		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
@@ -31,13 +35,13 @@ class RestServer {
 
 		long timeout_start_time;				// start time for timeout timer 
 
-		byte post_process_state;
-		#define POST_NOT_PROCESSED	0
-		#define POST_LENGTH_FOUND	1
-		#define POST_LENGTH_READY	2
-		#define POST_READ			3		
-		byte post_length_expected;
-		byte post_length_actual;
+		byte post_read_state;					// holds current state when reading post requests
+		#define POST_NOT_PROCESSED	0			//	0: post not yet processed 
+		#define POST_LENGTH_FOUND	1			//	1: post length found
+		#define POST_LENGTH_READY	2			//	2: post length has been retrieved
+		#define POST_READ			3			//	3: post data has been read
+		byte post_length_expected;				// holds the expected post length based on header
+		byte post_length_actual;				// holds actual post length 
 
 		void read_request(char);
 		void parse_request();
@@ -61,10 +65,10 @@ class RestServer {
 		int check_start(int);
 		int check_start_single(int);
 
-		boolean div_found(char);
-		boolean eol_found(char);
-		boolean eoh_match_found(char);
-		boolean length_match_found(char);
+		boolean match_div_char(char);
+		boolean match_eol_char(char);
+		boolean match_eoh_sequence(char);
+		boolean add_char_and_match(char, char*);
 
 		void print_flash_string (PGM_P, Stream &_client);
 		
@@ -80,11 +84,10 @@ class RestServer {
 
 		// resource_active_t contains following members: int state, boolean get, boolean post		
 		resource_active_t *resources;
-		// resource_active_t resources[SERVICES_COUNT];
 
 		RestServer(resource_description_t *, int);		// initializes the RestServer
-		void set_callback(boolean);
-		void set_post_with_get(boolean);
+		void set_callback(boolean);						// sets callback option
+		void set_post_with_get(boolean);				// sets get with post option
 		boolean handle_requests(Stream &_client); 		// reads request from Ethernet client
 		void respond();									// notifies rest_server when ready to respond
 		boolean handle_response(Stream &_client); 		// sends response to Ethernet client

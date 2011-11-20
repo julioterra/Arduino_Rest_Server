@@ -17,17 +17,17 @@ RestServer::RestServer(resource_description_t *_resources_description, int _reso
 	div_chars[0] = '/'; div_chars[1] = ' '; div_chars[2] = '='; div_chars[3] = '&';
 	eol_sequence[0] = '\r'; eol_sequence[1] = '\n';
 	eoh_sequence[0] = '\r'; eoh_sequence[1] = '\n'; eoh_sequence[2] = '\r'; eoh_sequence[3] = '\n';
-	options = B00000001;		
+	server_options = B00000011;		
 
 	prepare_for_next_client();	
 }
 
 void RestServer::set_callback(boolean _flag) {
-	_flag ? (options = options | CALLBACK) : (options = options & (CALLBACK^0x00));
+	_flag ? (server_options = server_options | CALLBACK) : (server_options = server_options & (CALLBACK^0x00));
 }
 
 void RestServer::set_post_with_get(boolean _flag) {
-	_flag ? (options = options | POST_WITH_GET) : (options = options & (POST_WITH_GET^0x00));
+	_flag ? (server_options = server_options | POST_WITH_GET) : (server_options = server_options & (POST_WITH_GET^0x00));
 }
 
 boolean RestServer::handle_requests(Stream &_client) {
@@ -35,15 +35,12 @@ boolean RestServer::handle_requests(Stream &_client) {
 	if (_client.available()) read_request(_client.read());
 	parse_request();
 	process();	
-
 	if (process_state == PROCESS) return true;
 	else return false;
 }
 
 void RestServer::respond() {
-	if (process_state == PROCESS) {
-		process_state = RESPOND;
-	}
+	if (process_state == PROCESS) process_state = RESPOND;
 }
 
 boolean RestServer::handle_response(Stream &_client) {
@@ -58,6 +55,26 @@ boolean RestServer::handle_response(Stream &_client) {
 	Methods directly accessed by public methods. These methods provide high-level
 	functionality such as reading, parsing and responding to requests.  
  */
+
+void RestServer::prepare_for_next_client() {
+	if (process_state == RESET) {
+		request.clear();
+
+		timeout_start_time = 0; 
+
+		post_read_state = POST_NOT_PROCESSED;
+		post_length_expected = 0;
+		post_length_actual = 0;
+
+		request_options = B00000000;
+	 	for (byte i = 0; i < resources_count; i++) {
+			resources[i].get = false;
+			resources[i].post = false;
+		}
+		process_state = WAITING;
+	}
+}
+	
 void RestServer::read_request(char new_char) {
 	Serial << new_char;
 
@@ -82,6 +99,14 @@ void RestServer::parse_request() {
 			return;
         } 
 
+        // Check for root request 
+			//         match_index = request.match_string("/resources", root_index);
+			//         if (match_index != NO_MATCH) { 
+			// for (int i = 0; i < resources_count; i++) resources[i].get = true;				
+			// process_state = PROCESS;
+			// return;
+			//         } 
+
 		// see if an /all request is present
         match_index = request.match_string("/all/", root_index);
 		if (match_index != NO_MATCH) {
@@ -97,7 +122,7 @@ void RestServer::parse_request() {
 
 void RestServer::process() {
 	if (process_state == PROCESS) {
-		// Serial << "[RestServer::process] current msg: " << request.msg << CRLF;	
+		// Serial << "[RestServer::process] current msg: " << request.msg << "\r\n";	
 
 		boolean service_active = false;
 		for (int i = 0; i < resources_count; i++) {
@@ -105,44 +130,34 @@ void RestServer::process() {
 		}
 
 		// Update process state if callback is turned off, or no services have been requested or updated
-		if (options & CALLBACK == 0 || !service_active) process_state = RESPOND;   
+		if (server_options & CALLBACK == 0 || !service_active) process_state = RESPOND;   
 	}
 }
 
 void RestServer::send_response(Stream &_client) {
 	if (process_state == RESPOND) {
-		print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
 
-	    for(byte i = 0; i < resources_count; i++) {
-			if (resources[i].get || resources[i].post) {
-				_client.print(resources_description[i].name);
-				print_flash_string(PSTR(": "), _client); 
-				_client.print(resources[i].state); 
-				print_flash_string(PSTR("<br />\r\n"), _client);
-	        }
-	    }
+		// handle requests that are in HTML format
+		if ((request_options & JSON_FORMAT) == 0) {
+			print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
 
-		get_form(_client);
-		
-		process_state = RESET;
-	}
-}
+		    for(byte i = 0; i < resources_count; i++) {
+				if (resources[i].get || resources[i].post) {
+					_client.print(resources_description[i].name);
+					print_flash_string(PSTR(": "), _client); 
+					_client.print(resources[i].state); 
+					print_flash_string(PSTR("<br />\r\n"), _client);
+		        }
+		    }
+			get_form(_client);
 
-void RestServer::prepare_for_next_client() {
-	if (process_state == RESET) {
-		request.clear();
-
-		timeout_start_time = 0; 
-		
-		post_process_state = POST_NOT_PROCESSED;
-		post_length_expected = 0;
-		post_length_actual = 0;
-
-	 	for (byte i = 0; i < resources_count; i++) {
-			resources[i].get = false;
-			resources[i].post = false;
 		}
-		process_state = WAITING;
+
+		// handle requests in JSON format
+		else if ((request_options & JSON_FORMAT) != 0) {
+			// NEW FUNCTIONALITY TO COME IN VERSION 2.0
+		}
+		process_state = RESET;
 	}
 }
 
@@ -153,54 +168,6 @@ void RestServer::prepare_for_next_client() {
 	methods provide mid-level functionality, such as reading GET and POST requests, 
 	parsing resources and resource states, and printing forms.
  */
-
-void RestServer::read_get_requests(char new_char) {
-	if (request_type == GET_SERVICES) {
-		request.add(new_char);
-	    if (new_char == eol_sequence[EOL_LENGTH-1]) {
-			// check for full end sequence, if match found change process_state and remove end seq
-			int msg_end_index = request.match_string(eol_sequence, request.length-EOL_LENGTH);
-	        if (msg_end_index != NO_MATCH) {
-				request.slice(0, request.length-EOL_LENGTH);
-
-				// remove unused content from end of request (after second space)
-	            msg_end_index = request.find(' ', check_start_single(0));
-	            if (msg_end_index != NO_MATCH) request.slice(0, msg_end_index); 
-
-				process_state = PARSE;
-			}
-		}
-	}
-}
-
-void RestServer::read_post_requests(char new_char) {
-	if (request_type == POST_SERVICES) {
-		if (post_process_state == POST_NOT_PROCESSED) {
-			if(length_match_found(new_char) == true) post_process_state = POST_LENGTH_FOUND;
-		}
-
-		else if (post_process_state == POST_LENGTH_FOUND) {
-			if (div_found(new_char) || eol_found(new_char) && request.length > 0) {
-				post_length_expected = request.to_i(0, request.length-1);
-				if (post_length_expected != NO_MATCH) post_process_state = POST_LENGTH_READY;
-				request.clear();					
-				// Serial << "[RestServer::read_request] post message length " << post_length_expected << CRLF;					
-			} 
-			else request.add(new_char);								
-		} 
-
-		else if (post_process_state == POST_LENGTH_READY) {		
-			if (eoh_match_found(new_char) == true) post_process_state = POST_READ;
-		}
-
-		else if (post_process_state == POST_READ) {		
-			request.add(new_char);
-			post_length_actual++;
-			if (post_length_expected <= post_length_actual) process_state = PARSE;			
-		}
-	}
-}
-
 void RestServer::get_verb(char new_char) {
 	if (process_state == WAITING) {
 		if (request.length == 0) timeout_start_time = millis();
@@ -226,6 +193,52 @@ void RestServer::get_verb(char new_char) {
 	}
 }
 
+void RestServer::read_get_requests(char new_char) {
+	if (request_type == GET_SERVICES) {
+		request.add(new_char);
+	    if (new_char == eol_sequence[EOL_LENGTH-1]) {
+			// check for full end sequence, if match found change process_state and remove end seq
+			int msg_end_index = request.match_string(eol_sequence, request.length-EOL_LENGTH);
+	        if (msg_end_index != NO_MATCH) {
+				request.slice(0, request.length-EOL_LENGTH);
+
+				// remove unused content from end of request (after second space)
+	            msg_end_index = request.find(' ', check_start_single(0));
+	            if (msg_end_index != NO_MATCH) request.slice(0, msg_end_index); 
+
+				process_state = PARSE;
+			}
+		}
+	}
+}
+
+void RestServer::read_post_requests(char new_char) {
+	if (request_type == POST_SERVICES) {
+		if (post_read_state == POST_NOT_PROCESSED) {
+			if(add_char_and_match(new_char, "Length: ") == true) post_read_state = POST_LENGTH_FOUND;
+		}
+
+		else if (post_read_state == POST_LENGTH_FOUND) {
+			if (match_div_char(new_char) || match_eol_char(new_char) && request.length > 0) {
+				post_length_expected = request.to_i(0, request.length-1);
+				if (post_length_expected != NO_MATCH) post_read_state = POST_LENGTH_READY;
+				request.clear();					
+			} 
+			else request.add(new_char);								
+		} 
+
+		else if (post_read_state == POST_LENGTH_READY) {		
+			if (match_eoh_sequence(new_char) == true) post_read_state = POST_READ;
+		}
+
+		else if (post_read_state == POST_READ) {		
+			request.add(new_char);
+			post_length_actual++;
+			if (post_length_expected <= post_length_actual) process_state = PARSE;			
+		}
+	}
+}
+
 /* read_services(int)
 	Processes the services/resources that are part of a request. This method walks
 	through each element from a request and attempts to match each one with the
@@ -240,7 +253,7 @@ void RestServer::read_services() {
 	int next_start_pos = 0;
 	boolean processing_request = true;
 
-	// Serial << "[RestServer::read_services] current msg: " << request.msg << CRLF;	
+	// Serial << "[RestServer::read_services] current msg: " << request.msg << "\r\n";	
 	
     while(processing_request == true) {
 
@@ -256,7 +269,7 @@ void RestServer::read_services() {
 
 		// loop through each resource/service name to look for a match
 		for (int i = 0; i < resources_count; i++) {
-			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
+			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << "\r\n";	
 			int match_index = service_match(i, cur_start_pos);
 			if (match_index != NO_MATCH) { 
 				next_start_pos = match_index; 
@@ -289,11 +302,11 @@ int RestServer::service_match(int _service_array_index, int _start_pos) {
 
 	if (match_index != NO_MATCH) { 
 		resources[_service_array_index].get = true;
-		// Serial << "[RestServer::service_match] matched service " << current_service << CRLF;
+		// Serial << "[RestServer::service_match] matched service " << current_service << "\r\n";
 		
 		// if (resources_description[_service_array_index].post_enabled) {
 		if (resources_description[_service_array_index].post_enabled) { 
-			if (request_type == POST_SERVICES || ((options & POST_WITH_GET) != 0)) {
+			if (request_type == POST_SERVICES || ((server_options & POST_WITH_GET) != 0)) {
 				match_index = state_match(_service_array_index, (match_index + 1));	
 			}
 		}
@@ -328,27 +341,29 @@ int RestServer::state_match(int _service_array_index, int _start_pos) {
 	return _start_pos;
 }
 
-void RestServer::get_form(Stream &_client) {		
-	print_flash_string(PSTR("<br />Update State<br />\r\n"), _client);
-	print_flash_string(PSTR("<form style='display:inline;' action='"), _client); 
-    for(byte i = 0; i < resources_count; i++) { 
-		if (resources[i].get && resources_description[i].post_enabled) {
-			print_flash_string(PSTR("/"), _client);  
-			_client.print(resources_description[i].name);	
+void RestServer::get_form(Stream &_client) {	
+	if ((server_options & POST_WITH_GET) == 0 && (request_options & JSON_FORMAT) == 0) {	
+		print_flash_string(PSTR("<br />Update State<br />\r\n"), _client);
+		print_flash_string(PSTR("<form style='display:inline;' action='"), _client); 
+	    for(byte i = 0; i < resources_count; i++) { 
+			if (resources[i].get && resources_description[i].post_enabled) {
+				print_flash_string(PSTR("/"), _client);  
+				_client.print(resources_description[i].name);	
+			}
 		}
+		print_flash_string(PSTR("' method='POST'>"), _client);
+
+	    for(byte i = 0; i < resources_count; i++) {
+			if (resources[i].get && resources_description[i].post_enabled) {
+				_client.print(resources_description[i].name);
+				print_flash_string(PSTR(": <input type='text' name='"), _client);
+				_client.print(resources_description[i].name);
+				print_flash_string(PSTR("'/><br />\r\n"), _client); 
+			}
+	    }
+
+		print_flash_string(PSTR("<input type='submit' value='update state'/></form>"), _client);
 	}
-	print_flash_string(PSTR("' method='POST'>"), _client);
-
-    for(byte i = 0; i < resources_count; i++) {
-		if (resources[i].get && resources_description[i].post_enabled) {
-			_client.print(resources_description[i].name);
-			print_flash_string(PSTR(": <input type='text' name='"), _client);
-			_client.print(resources_description[i].name);
-			print_flash_string(PSTR("'/><br />\r\n"), _client); 
-		}
-    }
-
-	print_flash_string(PSTR("<input type='submit' value='update state'/></form>"), _client);
 }
 
 
@@ -395,15 +410,16 @@ int RestServer::next_element(int _start) {
 int RestServer::check_for_state_msg(int _start) {
 	// check that current start location is not a div character
 	_start = check_start(_start);
-	if (_start == NO_MATCH) return NO_MATCH;
+	if (_start == NO_MATCH || _start >= request.length-1) return NO_MATCH;
     
 	// search for end position of current element and adjust as required
 	int end_index = next_element(_start);
     if (end_index == NO_MATCH) end_index = request.length - 1;
-    else end_index -= 1; 
+    else end_index -= 1; 	// move end index to location before the division character
    
 	// try to convert current element into a number by calling request.to_i method
 	int new_num = request.to_i(_start, end_index);
+	
     return new_num;
 }
 
@@ -430,11 +446,11 @@ int RestServer::check_start_single(int _start) {
 	// check if start pos is equal to or greater then request length return NO_MATCH
 	if (_start >= request.length) return NO_MATCH;
 	
-	if (div_found(request.msg[_start])) return _start + 1;
+	if (match_div_char(request.msg[_start])) return _start + 1;
 	else return _start;	
 }
 
-boolean RestServer::div_found(char _new_char) {
+boolean RestServer::match_div_char(char _new_char) {
 	// go throug div_char array to check start pos for div chars, if found update start pos
 	for (byte i = 0; i < DIV_ELEMENTS; i ++ ) {
 		if (_new_char == div_chars[i]) return true;
@@ -442,7 +458,7 @@ boolean RestServer::div_found(char _new_char) {
 	return false;	
 }
 
-boolean RestServer::eol_found(char _new_char) {
+boolean RestServer::match_eol_char(char _new_char) {
 	// go throug div_char array to check start pos for div chars, if found update start pos
 	for (byte i = 0; i < EOL_LENGTH; i ++ ) {
 		if (_new_char == eol_sequence[i]) return true;
@@ -450,24 +466,24 @@ boolean RestServer::eol_found(char _new_char) {
 	return false;	
 }
 
-boolean RestServer::eoh_match_found(char new_char) {
+boolean RestServer::match_eoh_sequence(char new_char) {
 	for (byte i = 0; i < EOH_LENGTH - 1; i++) request.msg[i] = request.msg[i+1];
 	request.msg[EOH_LENGTH - 1] = new_char;
 
 	if(strncmp(request.msg, eoh_sequence, EOH_LENGTH) == 0) {
-		// Serial << "[RestServer::eoh_match_found] returning true " << CRLF;
+		// Serial << "[RestServer::match_eoh_sequence] returning true " << "\r\n";
 		request.clear();
 		return true;
 	}
 	else return false;	
 }
 
-boolean RestServer::length_match_found(char new_char) {
-	byte match_string_length = 8;
-	for (byte i = 0; i < match_string_length - 1; i++) request.msg[i] = request.msg[i+1];
-	request.msg[match_string_length - 1] = new_char;
-	
-	if(strncmp(request.msg, "Length: ", match_string_length) == 0) {
+boolean RestServer::add_char_and_match(char new_char, char *_match_string) {
+	byte match_string_length = byte(strlen(_match_string));
+	for (byte i = 0; i < int(match_string_length) - 1; i++) request.msg[i] = request.msg[i+1];
+	request.msg[int(match_string_length) - 1] = new_char;
+
+	if(strncmp(request.msg, _match_string, match_string_length) == 0) {
 		request.clear();
 		return true;		
 	}

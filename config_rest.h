@@ -6,7 +6,7 @@
 
 #define REQUEST_MAX_LENGTH 		75		// maximum length of incoming requests
 #define NAME_LENGTH				15		// maximum length of service names
-#define TIMEOUT_INTERVAL 		2000
+#define TIMEOUT_INTERVAL 		200000
 
 
 /**************************************************************************
