@@ -1,12 +1,17 @@
 #include "config_rest.h"
 
-char *get_service(int index) {
-	char static string[NAME_LENGTH];
-	if (index < SERVICES_COUNT) {
-		for (int i = 0; i < NAME_LENGTH; i++) { string[i] = char(resources_spec[index].name[i]); }
-	}
-	return string;
-}
+// char *get_service(int index) {
+// 	char static string[NAME_LENGTH];
+// 	if (index < SERVICES_COUNT) {
+// 		for (int i = 0; i < NAME_LENGTH; i++) { string[i] = char(resources_spec[index].name[i]); }
+// 	}
+// 	return string;
+// }
+
+//////// OLD OLD OLD OLD OLD OLD OLD OLD OLD
+//////// OLD OLD OLD OLD OLD OLD OLD OLD OLD
+//////// OLD OLD OLD OLD OLD OLD OLD OLD OLD
+
 
 // void get_service(int index, char* test_string) {
 // 	if (index < SERVICES_COUNT) {

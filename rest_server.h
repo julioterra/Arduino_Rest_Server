@@ -5,19 +5,20 @@
 #include "config_rest.h"
 #include <utility/message.h>
 #include <../streaming/Streaming.h>
-#include <Ethernet.h>
-#include <string.h>
-#include "Print.h" 
 #include "Stream.h" 
+#include <string.h>
+// #include <Ethernet.h>
+// #include "Print.h" 
 
 class RestServer {
 
 	private:
-		Message request;						// holds the resource requests, and temporary data during 
-												// the request reading process
-			
-		int process_state;						// holds state of RestServer		
-		int request_type;						// holds request type (GET or POST)
+		resource_description_t *resources_description;	// holds description of resources available
+
+		Message request;	// holds the resource requests and temporary data during POST req. reading process
+															
+		byte process_state;						// holds state of RestServer		
+		byte request_type;						// holds request type (GET or POST)
 
 		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
 		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
@@ -26,20 +27,25 @@ class RestServer {
 		long timeout_start_time;				// start time for timeout timer 
 		int timeout_period;						// interval period for timeout timer 
 		
-		boolean post_ready_to_read;
-		boolean post_length_found;
-		boolean post_length_read;
-		int post_length_expected;
-		int post_length_actual;
+		#define POST_NOT_PROCESSED	0
+		#define POST_LENGTH_FOUND	1
+		#define POST_LENGTH_READY	2
+		#define POST_READ			3
+		
+		byte post_process_state;
+		byte post_length_expected;
+		byte post_length_actual;
 
-		boolean read_request(char);
-		void get_verb(char);
+		void read_request(char);
 		void parse_request();
 		void process();
 		void send_response(Stream &_client);
 		void prepare_for_next_client();
-
 		void check_timer();
+
+		void get_verb(char);
+		void read_get_requests(char);
+		void read_post_requests(char);
 
 		void read_services();
 		int service_match(int, int);
@@ -57,23 +63,19 @@ class RestServer {
 		boolean length_match_found(char);
 		
 	public:
-		#define WAITING				-1
-		#define READ_VERB			 0
-		#define READ_RESOURCE		 1	
-		#define PARSE				 2
-		#define PROCESS				 3
-		#define RESPOND				 4
-		#define RESET				 5
+		// process_state constants
+		#define WAITING				0
+		#define READ_VERB			1
+		#define READ_RESOURCE		2	
+		#define PARSE				3
+		#define PROCESS				4
+		#define RESPOND				5
+		#define RESET				6
 
-		struct Resource {
-			int state;
-			boolean get;
-			boolean post;
-		};
-		
-		struct Resource resources[SERVICES_COUNT];
+		// resource_active_t contains following members: int state, boolean get, boolean post		
+		resource_active_t resources[SERVICES_COUNT];
 
-		RestServer();								// constructor
+		RestServer(resource_description_t *);			// constructor
 		void respond();								// notifies rest_server when ready to respond
 		boolean handle_requests(Stream &_client); 	// reads request from Ethernet client
 		boolean handle_response(Stream &_client); 	// sends response to Ethernet client
