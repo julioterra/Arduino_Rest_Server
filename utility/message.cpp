@@ -29,18 +29,16 @@ void Message::add (char _new_char) {
  *	it changes the existing array to only contain the information 
  *  within the start and end index. 
  */
-void Message::slice (int _start_index, int _end_index) {
-	if (_end_index > length) 
-		{ _end_index = length; } 
-	if (_start_index > _end_index || _start_index < 0 || _end_index < 0) 
-		{ return; }
+void Message::slice (int _start_index, int _end_index) 
+{
+	if (_end_index > length) _end_index = length; 
+	if (_start_index > _end_index || _start_index < 0 || _end_index < 0) return; 
 
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++) 
+	{
         int shift_start_index = _start_index + i;
-        if (shift_start_index < _end_index) 
-			{ msg[i] = msg[shift_start_index]; } 
-		else 
-			{ msg[i] = '\0'; }
+        if (shift_start_index < _end_index) msg[i] = msg[shift_start_index]; 
+		else msg[i] = '\0'; 
     }
 	length = strlen(msg);
 }

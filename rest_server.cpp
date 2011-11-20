@@ -52,6 +52,35 @@ boolean RestServer::handle_response(Stream &_client) {
 	else return false;
 }
 
+int RestServer::get_resource(char *resource_name) {
+	for (int i = 0; i < resources_count; i++) {
+		if (strcmp(resources_description[i].name, resource_name) == 0) {
+			return resources[i].state;
+		}
+	}
+}
+
+int RestServer::get_resource(int resource_num) {
+	return resources[resource_num].state;	
+}
+
+void RestServer::set_resource(char *resource_name, int new_state) {
+	for (int i = 0; i < resources_count; i++) {
+		if (strcmp(resources_description[i].name, resource_name) == 0) {
+			resources[i].state = constrain(new_state, 
+										   resources_description[i].range.min, 
+										   resources_description[i].range.max);
+		}
+	}
+}
+
+void RestServer::set_resource(int resource_num, int new_state) {
+	resources[resource_num].state = constrain(new_state, 
+								   resources_description[resource_num].range.min, 
+								   resources_description[resource_num].range.max);
+}
+
+
 /********************************************************
  TOP-LEVEL METHODS
 	Methods directly accessed by public methods. These methods provide high-level
@@ -78,7 +107,7 @@ void RestServer::prepare_for_next_client() {
 }
 	
 void RestServer::read_request(char new_char) {
-	Serial << new_char;
+	// Serial.print(new_char);
 
 	if (process_state == READ_VERB) get_verb(new_char);	
 
@@ -91,10 +120,10 @@ void RestServer::read_request(char new_char) {
 
 void RestServer::parse_request() {
 	if (process_state == PARSE) {
-	    int root_index = 0;
+	    int start_index = 0;
 
         // Check for root request 
-        int match_index = request.match_string("/", root_index);
+        int match_index = request.match_string("/", start_index);
         if (match_index != NO_MATCH && request.length == 1) { 
 			for (int i = 0; i < resources_count; i++) resources[i].get = true;				
 			process_state = PROCESS;
@@ -102,17 +131,23 @@ void RestServer::parse_request() {
         } 
 
         // Check if this is a resource information request 
-        match_index = request.match_string("/resource_info", root_index);
+        match_index = request.match_string("/resource_info", start_index);
         if (match_index != NO_MATCH) { 
 			request_options = request_options | RESOURCE_REQ;
-			// for (int i = 0; i < resources_count; i++) resources[i].get = true;				
-			Serial << "[RestServer::parse_request] resource_info requested" "\r\n";	
 			process_state = RESPOND;
 			return;
         } 
 
+		// see if this is a json request is present
+        match_index = request.match_string("/json", start_index);
+		if (match_index != NO_MATCH) {
+			request_options = request_options | JSON_FORMAT;
+			if (request.length <= 6) for (int i = 0; i < resources_count; i++) resources[i].get = true;				
+			else start_index = match_index + 1;
+		}
+		
 		// see if an /all request is present
-        match_index = request.match_string("/all/", root_index);
+        match_index = request.match_string("/all/", start_index);
 		if (match_index != NO_MATCH) {
 			for (int i = 0; i < resources_count; i++) resources[i].get = true;
 		}
@@ -126,7 +161,6 @@ void RestServer::parse_request() {
 
 void RestServer::process() {
 	if (process_state == PROCESS) {
-		// Serial << "[RestServer::process] current msg: " << request.msg << "\r\n";	
 
 		boolean service_active = false;
 		for (int i = 0; i < resources_count; i++) {
@@ -138,54 +172,82 @@ void RestServer::process() {
 	}
 }
 
+
+
+/********************************************************
+ RESPONSE METHODS
+ */
+
 void RestServer::send_response(Stream &_client) {
 	if (process_state == RESPOND) {
 
-		// handle standard GET and POST requests
-		if ((request_options & RESOURCE_REQ) == 0) {
-
-			// handle HTML requests
-			if ((request_options & JSON_FORMAT) == 0) {
-				print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
-
-			    for(int i = 0; i < resources_count; i++) {
-					if (resources[i].get || resources[i].post) {
-						_client.print(resources_description[i].name);
-						print_flash_string(PSTR(": "), _client); 
-						_client.print(resources[i].state); 
-						print_flash_string(PSTR("<br />\r\n"), _client);
-			        }
-			    }
-				get_form(_client);
-			}
-
-			// handle requests in JSON format
-			else if ((request_options & JSON_FORMAT) != 0) {
-				// NEW FUNCTIONALITY TO COME IN VERSION 2.0
-			}
-						
-		}
-		
 		// handle resource info/description requests
-		else if ((request_options & RESOURCE_REQ) != 0) {
-			Serial << "[RestServer::send_response] got to resource request response" "\r\n";	
-			print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
+		if ((request_options & RESOURCE_REQ) == RESOURCE_REQ) print_resource_description(_client);
 
-		    for(byte i = 0; i < resources_count; i++) {
-				_client.print(resources_description[i].name);
-				print_flash_string(PSTR(": "), _client); 
-				if (resources_description[i].post_enabled) print_flash_string(PSTR("post_enabled, "), _client); 
-				else print_flash_string(PSTR("post_disabled, "), _client); 
-				print_flash_string(PSTR(" range "), _client); 
-				_client.print(resources_description[i].range.min);
-				print_flash_string(PSTR(" - "), _client); 
-				_client.print(resources_description[i].range.max);					
-				print_flash_string(PSTR("<br />\r\n"), _client);
-		    }
-		}		
-
+		// handle standard GET and POST requests
+		else {
+			// handle requests in JSON format
+			if ((request_options & JSON_FORMAT) == JSON_FORMAT) print_json(_client);
+			// handle HTML requests
+			else if ((request_options & JSON_FORMAT) == 0) print_html(_client);
+		}
 		process_state = RESET;
 	}
+}
+
+void RestServer::print_html(Stream &_client) {
+	if ((request_options & JSON_FORMAT) == 0) {
+		print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
+
+	    for(int i = 0; i < resources_count; i++) {
+			if (resources[i].get || resources[i].post) {
+				_client.print(resources_description[i].name);
+				print_flash_string(PSTR(": "), _client); 
+				_client.print(resources[i].state); 
+				print_flash_string(PSTR("<br />\r\n"), _client);
+	        }
+	    }
+		print_form(_client);
+	}
+}
+
+void RestServer::print_json(Stream &_client) {
+	print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"), _client);
+
+	print_flash_string(PSTR("[\r\n"), _client); 
+    for(int i = 0; i < resources_count; i++) {
+		if (resources[i].get || resources[i].post) {
+			print_flash_string(PSTR("{\r\n'resource_name':'"), _client); 
+			_client.print(resources_description[i].name);
+			print_flash_string(PSTR("',\r\n'state':"), _client); 
+			_client.print(resources[i].state); 
+			print_flash_string(PSTR("\r\n}"), _client);
+			if (i < resources_count - 1) print_flash_string(PSTR(","), _client);
+			print_flash_string(PSTR("\r\n"), _client);					
+        }
+    }
+	print_flash_string(PSTR("]\r\n"), _client); 			
+}
+
+void RestServer::print_resource_description(Stream &_client) {
+	print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"), _client);
+
+	print_flash_string(PSTR("[\r\n"), _client); 
+	for(byte i = 0; i < resources_count; i++) {
+		print_flash_string(PSTR("{\r\n'resource_name':'"), _client); 
+		_client.print(resources_description[i].name);
+		print_flash_string(PSTR("',\r\n'post_enabled':'"), _client); 
+		if (resources_description[i].post_enabled) print_flash_string(PSTR("true"), _client); 
+		else print_flash_string(PSTR("false"), _client); 
+		print_flash_string(PSTR("',\r\n'range':{'min':"), _client); 
+		_client.print(resources_description[i].range.min);
+		print_flash_string(PSTR(",'max':"), _client); 
+		_client.print(resources_description[i].range.max);					
+		print_flash_string(PSTR("}\r\n}"), _client);
+		if (i < resources_count - 1) print_flash_string(PSTR(","), _client);
+		print_flash_string(PSTR("\r\n"), _client);				
+	}
+	print_flash_string(PSTR("]\r\n"), _client); 
 }
 
 
@@ -202,7 +264,6 @@ void RestServer::get_verb(char new_char) {
 	} 
 	
 	if (process_state == READ_VERB) {
-	    int root_index = 0;	
 		request.add(new_char);
 		
 	    int match_index = request.match_string("GET ", request.length-4);
@@ -280,8 +341,6 @@ void RestServer::read_services() {
 	int next_start_pos = 0;
 	boolean processing_request = true;
 
-	// Serial << "[RestServer::read_services] current msg: " << request.msg << "\r\n";	
-	
     while(processing_request == true) {
 
 		// re-initializing the start and end position of current element 
@@ -296,7 +355,6 @@ void RestServer::read_services() {
 
 		// loop through each resource/service name to look for a match
 		for (int i = 0; i < resources_count; i++) {
-			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << "\r\n";	
 			int match_index = service_match(i, cur_start_pos);
 			if (match_index != NO_MATCH) { 
 				next_start_pos = match_index; 
@@ -318,23 +376,21 @@ void RestServer::read_services() {
 	Returns: returns location of the next element within the request, if a service 
 		is found; otherwise, returns NO_MATCH  
  */
-int RestServer::service_match(int _service_array_index, int _start_pos) {
+int RestServer::service_match(int _r_index, int _start_pos) {
 	// check that start pos is not a div char, and that it is smaller than the request's length
 	_start_pos = check_start(_start_pos);
 	if (_start_pos == NO_MATCH) return NO_MATCH;
 	int match_index = NO_MATCH;
 
 	// get current resource name and try to match to current request element
-	match_index = request.match_string(resources_description[_service_array_index].name, _start_pos);
+	match_index = request.match_string(resources_description[_r_index].name, _start_pos);
 
 	if (match_index != NO_MATCH) { 
-		resources[_service_array_index].get = true;
-		// Serial << "[RestServer::service_match] matched service " << current_service << "\r\n";
+		resources[_r_index].get = true;
 		
-		// if (resources_description[_service_array_index].post_enabled) {
-		if (resources_description[_service_array_index].post_enabled) { 
+		if (resources_description[_r_index].post_enabled) { 
 			if (request_type == POST_SERVICES || ((server_options & POST_WITH_GET) != 0)) {
-				match_index = state_match(_service_array_index, (match_index + 1));	
+				match_index = state_match(_r_index, (match_index + 1));	
 			}
 		}
 	}
@@ -352,14 +408,16 @@ int RestServer::service_match(int _service_array_index, int _start_pos) {
 	Returns: returns location of the next element within the request, if a state message 
 		is found; otherwise, returns NO_MATCH  
  */
-int RestServer::state_match(int _service_array_index, int _start_pos) {
+int RestServer::state_match(int _r_index, int _start_pos) {
 	// check if for a state message (a number following an UPDATE-capable service)
 	int new_number = check_for_state_msg(_start_pos);
 
 	// if match exists, then (1) set updated array to true, (2) update state array 
 	if (new_number != NO_MATCH) {
-		resources[_service_array_index].post = true;
-		resources[_service_array_index].state = new_number;
+		resources[_r_index].post = true;
+		resources[_r_index].state = constrain(new_number, 
+											  resources_description[_r_index].range.min, 
+											  resources_description[_r_index].range.max);
 
 		// check the position of the next element
 		_start_pos = next_element(_start_pos);
@@ -368,8 +426,9 @@ int RestServer::state_match(int _service_array_index, int _start_pos) {
 	return _start_pos;
 }
 
-void RestServer::get_form(Stream &_client) {	
-	if ((server_options & POST_WITH_GET) == 0 && (request_options & JSON_FORMAT) == 0) {	
+void RestServer::print_form(Stream &_client) {	
+	// if ((server_options & POST_WITH_GET) == 0 && (request_options & JSON_FORMAT) == 0) {	
+	if ((request_options & JSON_FORMAT) == 0) {	
 		print_flash_string(PSTR("<br />Update State<br />\r\n"), _client);
 		print_flash_string(PSTR("<form style='display:inline;' action='"), _client); 
 	    for(byte i = 0; i < resources_count; i++) { 
@@ -498,7 +557,6 @@ boolean RestServer::match_eoh_sequence(char new_char) {
 	request.msg[EOH_LENGTH - 1] = new_char;
 
 	if(strncmp(request.msg, eoh_sequence, EOH_LENGTH) == 0) {
-		// Serial << "[RestServer::match_eoh_sequence] returning true " << "\r\n";
 		request.clear();
 		return true;
 	}

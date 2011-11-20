@@ -2,14 +2,14 @@
 #define __Restful_server_h__
 
 #include "WProgram.h"
-#include "Stream.h" 
+#include <stream.h> 
+#include <string.h>
 
 #include "config_rest.h"
 #include "utility/message.h"
 
-#include <string.h>
 
-#include <../Streaming/Streaming.h>
+// #include <../Streaming/Streaming.h>
 
 class RestServer {
 
@@ -43,34 +43,40 @@ class RestServer {
 		byte post_length_expected;				// holds the expected post length based on header
 		byte post_length_actual;				// holds actual post length 
 
+		// methods for reading request 
 		void read_request(char);
-		void parse_request();
-		void process();
-		void send_response(Stream &_client);
-		void prepare_for_next_client();
-		void check_timer();
-
 		void get_verb(char);
 		void read_get_requests(char);
 		void read_post_requests(char);
-
 		void read_services();
-		int service_match(int, int);
-		int state_match(int, int);
-
-		void get_form(Stream &_client);
-
-		int next_element(int);
-		int check_for_state_msg(int);
-		int check_start(int);
-		int check_start_single(int);
-
 		boolean match_div_char(char);
 		boolean match_eol_char(char);
 		boolean match_eoh_sequence(char);
 		boolean add_char_and_match(char, char*);
 
-		void print_flash_string (PGM_P, Stream &_client);
+		// methods for parsing request 
+		void parse_request();
+		int service_match(int, int);
+		int state_match(int, int);
+		int next_element(int);
+		int check_for_state_msg(int);
+		int check_start(int);
+		int check_start_single(int);
+
+		// methods for processing data in prepartion to respond to request
+		void process();
+
+		// methods for responding to request
+		void send_response(Stream &_client);
+		void print_json(Stream &_client);
+		void print_html(Stream &_client);
+		void print_resource_description(Stream &_client);
+		void print_form(Stream &_client);
+		void print_flash_string(PGM_P, Stream &_client);
+
+		// methods for resetting data after request, and managing timeout
+		void prepare_for_next_client();
+		void check_timer();
 		
 	public:
 		// process_state constants
@@ -89,11 +95,13 @@ class RestServer {
 		void set_callback(boolean);						// sets callback option
 		void set_post_with_get(boolean);				// sets get with post option
 		boolean handle_requests(Stream &_client); 		// reads request from Ethernet client
+		int get_resource(char*);						// get state of named resource
+		int get_resource(int);							// get state of numbered resource
+		void set_resource(char*, int);					// set state of named resource
+		void set_resource(int, int);					// set state of numbered resource
 		void respond();									// notifies rest_server when ready to respond
 		boolean handle_response(Stream &_client); 		// sends response to Ethernet client
 
 };
-
-
 
 #endif // endif __Restful_server_h__
