@@ -7,17 +7,27 @@
  */
 
 
-RestServer::RestServer(resource_description_t *_resources_description){
+RestServer::RestServer(resource_description_t *_resources_description, int _resources_count){	
 	resources_description = _resources_description;
-	request = Message();
-	for (int i = 0; i < SERVICES_COUNT; i++) resources[i].state = 0;
-	process_state = WAITING;
-	prepare_for_next_client();	
+	resources_count = _resources_count;
+	resources = (resource_active_t*) malloc(sizeof(resource_active_t) * resources_count);
+	for (int i = 0; i < resources_count; i++) resources[i].state = 0;
 
+	request = Message();
 	div_chars[0] = '/'; div_chars[1] = ' '; div_chars[2] = '='; div_chars[3] = '&';
 	eol_sequence[0] = '\r'; eol_sequence[1] = '\n';
 	eoh_sequence[0] = '\r'; eoh_sequence[1] = '\n'; eoh_sequence[2] = '\r'; eoh_sequence[3] = '\n';
-	timeout_start_time = 0; timeout_period = 2 *1000;
+	options = B00000001;		
+
+	prepare_for_next_client();	
+}
+
+void RestServer::set_callback(boolean _flag) {
+	_flag ? (options = options | CALLBACK) : (options = options & (CALLBACK^0x00));
+}
+
+void RestServer::set_post_with_get(boolean _flag) {
+	_flag ? (options = options | POST_WITH_GET) : (options = options & (POST_WITH_GET^0x00));
 }
 
 boolean RestServer::handle_requests(Stream &_client) {
@@ -58,7 +68,6 @@ void RestServer::read_request(char new_char) {
 		else if (request_type == POST_SERVICES) read_post_requests(new_char);
 		if (request.length == REQUEST_MAX_LENGTH-1) process_state = PARSE;
 	}
-
 }
 
 void RestServer::parse_request() {
@@ -68,7 +77,7 @@ void RestServer::parse_request() {
         // Check for root request 
         int match_index = request.match_string("/", root_index);
         if (match_index != NO_MATCH && request.length == 1) { 
-			for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;				
+			for (int i = 0; i < resources_count; i++) resources[i].get = true;				
 			process_state = PROCESS;
 			return;
         } 
@@ -76,7 +85,7 @@ void RestServer::parse_request() {
 		// see if an /all request is present
         match_index = request.match_string("/all/", root_index);
 		if (match_index != NO_MATCH) {
-			for (int i = 0; i < SERVICES_COUNT; i++) resources[i].get = true;
+			for (int i = 0; i < resources_count; i++) resources[i].get = true;
 		}
 
 		// look for individual service/resource requests
@@ -91,27 +100,29 @@ void RestServer::process() {
 		// Serial << "[RestServer::process] current msg: " << request.msg << CRLF;	
 
 		boolean service_active = false;
-		for (int i = 0; i < SERVICES_COUNT; i++) {
+		for (int i = 0; i < resources_count; i++) {
 			if (resources[i].get || resources[i].post) service_active = true;
 		}
 
 		// Update process state if callback is turned off, or no services have been requested or updated
-		if (CALLBACK == 0 || !service_active) process_state = RESPOND;   
+		if (options & CALLBACK == 0 || !service_active) process_state = RESPOND;   
 	}
 }
 
 void RestServer::send_response(Stream &_client) {
 	if (process_state == RESPOND) {
-		_client << "HTTP/1.1 200 OK" << CRLF << "Content-Type: text/html" << CRLF << CRLF;
+		print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
 
-	    for(byte i = 0; i < SERVICES_COUNT; i++) {
+	    for(byte i = 0; i < resources_count; i++) {
 			if (resources[i].get || resources[i].post) {
-				_client << resources_description[i].name << ": " << resources[i].state << 
-				 		"<br />" << CRLF;
+				_client.print(resources_description[i].name);
+				print_flash_string(PSTR(": "), _client); 
+				_client.print(resources[i].state); 
+				print_flash_string(PSTR("<br />\r\n"), _client);
 	        }
 	    }
 
-		get_form(0, _client);
+		get_form(_client);
 		
 		process_state = RESET;
 	}
@@ -120,12 +131,14 @@ void RestServer::send_response(Stream &_client) {
 void RestServer::prepare_for_next_client() {
 	if (process_state == RESET) {
 		request.clear();
+
+		timeout_start_time = 0; 
 		
 		post_process_state = POST_NOT_PROCESSED;
 		post_length_expected = 0;
 		post_length_actual = 0;
 
-	 	for (byte i = 0; i < SERVICES_COUNT; i++) {
+	 	for (byte i = 0; i < resources_count; i++) {
 			resources[i].get = false;
 			resources[i].post = false;
 		}
@@ -242,7 +255,7 @@ void RestServer::read_services() {
 		}
 
 		// loop through each resource/service name to look for a match
-		for (int i = 0; i < SERVICES_COUNT; i++) {
+		for (int i = 0; i < resources_count; i++) {
 			// Serial << "[RestServer::read_services] checking new resource array: " << current_service << CRLF;	
 			int match_index = service_match(i, cur_start_pos);
 			if (match_index != NO_MATCH) { 
@@ -279,11 +292,12 @@ int RestServer::service_match(int _service_array_index, int _start_pos) {
 		// Serial << "[RestServer::service_match] matched service " << current_service << CRLF;
 		
 		// if (resources_description[_service_array_index].post_enabled) {
-		if (resources_description[_service_array_index].post_enabled && request_type == POST_SERVICES) {
-			match_index = state_match(_service_array_index, (match_index + 1));	
+		if (resources_description[_service_array_index].post_enabled) { 
+			if (request_type == POST_SERVICES || ((options & POST_WITH_GET) != 0)) {
+				match_index = state_match(_service_array_index, (match_index + 1));	
+			}
 		}
 	}
-
 	return match_index;
 }
 
@@ -314,22 +328,27 @@ int RestServer::state_match(int _service_array_index, int _start_pos) {
 	return _start_pos;
 }
 
-void RestServer::get_form(int resource_num, Stream &_client) {		
-	_client << "<br />Update State<br />" << CRLF;
-	_client << "<form style='display:inline;' action='"; 
-    for(byte i = 0; i < SERVICES_COUNT; i++) { 
-		if (resources[i].post) _client << "/" << resources_description[i].name;	
+void RestServer::get_form(Stream &_client) {		
+	print_flash_string(PSTR("<br />Update State<br />\r\n"), _client);
+	print_flash_string(PSTR("<form style='display:inline;' action='"), _client); 
+    for(byte i = 0; i < resources_count; i++) { 
+		if (resources[i].get && resources_description[i].post_enabled) {
+			print_flash_string(PSTR("/"), _client);  
+			_client.print(resources_description[i].name);	
+		}
 	}
-	_client << "' method='POST'>";
+	print_flash_string(PSTR("' method='POST'>"), _client);
 
-    for(byte i = 0; i < SERVICES_COUNT; i++) {
-		if ((resources[i].get && resources_description[i].post_enabled)) {
-			_client << resources_description[i].name << 
-					": <input type='text' name='" << resources_description[i].name << 
-					"'/>" << "<br />" << CRLF;
+    for(byte i = 0; i < resources_count; i++) {
+		if (resources[i].get && resources_description[i].post_enabled) {
+			_client.print(resources_description[i].name);
+			print_flash_string(PSTR(": <input type='text' name='"), _client);
+			_client.print(resources_description[i].name);
+			print_flash_string(PSTR("'/><br />\r\n"), _client); 
 		}
     }
-	_client << "<input type='submit' value='update state'/></form>";
+
+	print_flash_string(PSTR("<input type='submit' value='update state'/></form>"), _client);
 }
 
 
@@ -461,10 +480,13 @@ void RestServer::check_timer() {
 		process_state = READ_VERB;
 	} 
 	
-	if (millis() - timeout_start_time > timeout_period) process_state = RESET;
+	if (millis() - timeout_start_time > TIMEOUT_INTERVAL) process_state = RESET;
 }
 
-
-
+void RestServer::print_flash_string(PGM_P string_const, Stream &_client) {
+    char cur_char;
+    while ((cur_char = pgm_read_byte(string_const++)) != 0)
+        _client.print(cur_char);
+}
 
 

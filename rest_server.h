@@ -2,37 +2,40 @@
 #define __Restful_server_h__
 
 #include "WProgram.h"
-#include "config_rest.h"
-#include <utility/message.h>
-#include <../streaming/Streaming.h>
 #include "Stream.h" 
+
+#include "config_rest.h"
+#include "utility/message.h"
+
 #include <string.h>
-// #include <Ethernet.h>
-// #include "Print.h" 
+#include <../Streaming/Streaming.h>
+#include <../Flash/Flash.h>
 
 class RestServer {
 
 	private:
 		resource_description_t *resources_description;	// holds description of resources available
+		byte resources_count;							// holds the number of resources
 
 		Message request;	// holds the resource requests and temporary data during POST req. reading process
 															
 		byte process_state;						// holds state of RestServer		
 		byte request_type;						// holds request type (GET or POST)
+		byte options;
+		#define CALLBACK			1			
+		#define POST_WITH_GET		2
 
 		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
 		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
 		char div_chars[DIV_ELEMENTS + 1];		// element division chars
 
 		long timeout_start_time;				// start time for timeout timer 
-		int timeout_period;						// interval period for timeout timer 
-		
+
+		byte post_process_state;
 		#define POST_NOT_PROCESSED	0
 		#define POST_LENGTH_FOUND	1
 		#define POST_LENGTH_READY	2
-		#define POST_READ			3
-		
-		byte post_process_state;
+		#define POST_READ			3		
 		byte post_length_expected;
 		byte post_length_actual;
 
@@ -51,16 +54,19 @@ class RestServer {
 		int service_match(int, int);
 		int state_match(int, int);
 
-		void get_form(int, Stream &_client);
+		void get_form(Stream &_client);
 
 		int next_element(int);
 		int check_for_state_msg(int);
 		int check_start(int);
 		int check_start_single(int);
+
 		boolean div_found(char);
 		boolean eol_found(char);
 		boolean eoh_match_found(char);
 		boolean length_match_found(char);
+
+		void print_flash_string (PGM_P, Stream &_client);
 		
 	public:
 		// process_state constants
@@ -73,12 +79,15 @@ class RestServer {
 		#define RESET				6
 
 		// resource_active_t contains following members: int state, boolean get, boolean post		
-		resource_active_t resources[SERVICES_COUNT];
+		resource_active_t *resources;
+		// resource_active_t resources[SERVICES_COUNT];
 
-		RestServer(resource_description_t *);			// constructor
-		void respond();								// notifies rest_server when ready to respond
-		boolean handle_requests(Stream &_client); 	// reads request from Ethernet client
-		boolean handle_response(Stream &_client); 	// sends response to Ethernet client
+		RestServer(resource_description_t *, int);		// initializes the RestServer
+		void set_callback(boolean);
+		void set_post_with_get(boolean);
+		boolean handle_requests(Stream &_client); 		// reads request from Ethernet client
+		void respond();									// notifies rest_server when ready to respond
+		boolean handle_response(Stream &_client); 		// sends response to Ethernet client
 
 };
 
