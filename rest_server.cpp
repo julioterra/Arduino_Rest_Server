@@ -10,7 +10,9 @@
 RestServer::RestServer(resource_description_t *_resources_description, int _resources_count){	
 	resources_description = _resources_description;
 	resources_count = _resources_count;
+
 	resources = (resource_active_t*) malloc(sizeof(resource_active_t) * resources_count);
+	if (resources) memset(resources, 0, sizeof(sizeof(resource_active_t) * resources_count));
 	for (int i = 0; i < resources_count; i++) resources[i].state = 0;
 
 	request = Message();
@@ -99,13 +101,15 @@ void RestServer::parse_request() {
 			return;
         } 
 
-        // Check for root request 
-			//         match_index = request.match_string("/resources", root_index);
-			//         if (match_index != NO_MATCH) { 
+        // Check if this is a resource information request 
+        match_index = request.match_string("/resource_info", root_index);
+        if (match_index != NO_MATCH) { 
+			request_options = request_options | RESOURCE_REQ;
 			// for (int i = 0; i < resources_count; i++) resources[i].get = true;				
-			// process_state = PROCESS;
-			// return;
-			//         } 
+			Serial << "[RestServer::parse_request] resource_info requested" "\r\n";	
+			process_state = RESPOND;
+			return;
+        } 
 
 		// see if an /all request is present
         match_index = request.match_string("/all/", root_index);
@@ -137,26 +141,49 @@ void RestServer::process() {
 void RestServer::send_response(Stream &_client) {
 	if (process_state == RESPOND) {
 
-		// handle requests that are in HTML format
-		if ((request_options & JSON_FORMAT) == 0) {
+		// handle standard GET and POST requests
+		if ((request_options & RESOURCE_REQ) == 0) {
+
+			// handle HTML requests
+			if ((request_options & JSON_FORMAT) == 0) {
+				print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
+
+			    for(int i = 0; i < resources_count; i++) {
+					if (resources[i].get || resources[i].post) {
+						_client.print(resources_description[i].name);
+						print_flash_string(PSTR(": "), _client); 
+						_client.print(resources[i].state); 
+						print_flash_string(PSTR("<br />\r\n"), _client);
+			        }
+			    }
+				get_form(_client);
+			}
+
+			// handle requests in JSON format
+			else if ((request_options & JSON_FORMAT) != 0) {
+				// NEW FUNCTIONALITY TO COME IN VERSION 2.0
+			}
+						
+		}
+		
+		// handle resource info/description requests
+		else if ((request_options & RESOURCE_REQ) != 0) {
+			Serial << "[RestServer::send_response] got to resource request response" "\r\n";	
 			print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
 
 		    for(byte i = 0; i < resources_count; i++) {
-				if (resources[i].get || resources[i].post) {
-					_client.print(resources_description[i].name);
-					print_flash_string(PSTR(": "), _client); 
-					_client.print(resources[i].state); 
-					print_flash_string(PSTR("<br />\r\n"), _client);
-		        }
+				_client.print(resources_description[i].name);
+				print_flash_string(PSTR(": "), _client); 
+				if (resources_description[i].post_enabled) print_flash_string(PSTR("post_enabled, "), _client); 
+				else print_flash_string(PSTR("post_disabled, "), _client); 
+				print_flash_string(PSTR(" range "), _client); 
+				_client.print(resources_description[i].range.min);
+				print_flash_string(PSTR(" - "), _client); 
+				_client.print(resources_description[i].range.max);					
+				print_flash_string(PSTR("<br />\r\n"), _client);
 		    }
-			get_form(_client);
+		}		
 
-		}
-
-		// handle requests in JSON format
-		else if ((request_options & JSON_FORMAT) != 0) {
-			// NEW FUNCTIONALITY TO COME IN VERSION 2.0
-		}
 		process_state = RESET;
 	}
 }
