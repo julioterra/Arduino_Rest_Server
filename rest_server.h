@@ -4,7 +4,7 @@
 #include "WProgram.h"
 #include <stream.h> 
 #include <string.h>
-
+#include <avr/pgmspace.h>
 #include "config_rest.h"
 #include "utility/message.h"
 

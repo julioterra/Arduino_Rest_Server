@@ -112,8 +112,8 @@ void RestServer::read_request(char new_char) {
 	if (process_state == READ_VERB) get_verb(new_char);	
 
 	else if (process_state == READ_RESOURCE) {
-		if (request_type == GET_SERVICES) read_get_requests(new_char);
-		else if (request_type == POST_SERVICES) read_post_requests(new_char);
+		if (request_type == GET_REQUESTS) read_get_requests(new_char);
+		else if (request_type == POST_REQUESTS) read_post_requests(new_char);
 		if (request.length == REQUEST_MAX_LENGTH-1) process_state = PARSE;
 	}
 }
@@ -272,8 +272,8 @@ void RestServer::get_verb(char new_char) {
 		// if a match is found then process the request
 	    if (match_index != NO_MATCH) {
 			// set the type of request that was found
-			if (request.msg[0] == 'G') request_type = GET_SERVICES;
-			else request_type = POST_SERVICES;
+			if (request.msg[0] == 'G') request_type = GET_REQUESTS;
+			else request_type = POST_REQUESTS;
 
 			process_state = READ_RESOURCE;			
 			request.clear();
@@ -282,7 +282,7 @@ void RestServer::get_verb(char new_char) {
 }
 
 void RestServer::read_get_requests(char new_char) {
-	if (request_type == GET_SERVICES) {
+	if (request_type == GET_REQUESTS) {
 		request.add(new_char);
 	    if (new_char == eol_sequence[EOL_LENGTH-1]) {
 			// check for full end sequence, if match found change process_state and remove end seq
@@ -301,7 +301,7 @@ void RestServer::read_get_requests(char new_char) {
 }
 
 void RestServer::read_post_requests(char new_char) {
-	if (request_type == POST_SERVICES) {
+	if (request_type == POST_REQUESTS) {
 		if (post_read_state == POST_NOT_PROCESSED) {
 			if(add_char_and_match(new_char, "Length: ") == true) post_read_state = POST_LENGTH_FOUND;
 		}
@@ -389,7 +389,7 @@ int RestServer::service_match(int _r_index, int _start_pos) {
 		resources[_r_index].get = true;
 		
 		if (resources_description[_r_index].post_enabled) { 
-			if (request_type == POST_SERVICES || ((server_options & POST_WITH_GET) != 0)) {
+			if (request_type == POST_REQUESTS || ((server_options & POST_WITH_GET) != 0)) {
 				match_index = state_match(_r_index, (match_index + 1));	
 			}
 		}
