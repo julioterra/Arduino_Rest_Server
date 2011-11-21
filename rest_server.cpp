@@ -303,15 +303,22 @@ void RestServer::parse_request() {
 		// see if this is a json request is present
         match_index = request.match_string("/json", start_index);
 		if (match_index != NO_MATCH) {
-			request_options = request_options | JSON_FORMAT;
-			if (request.length <= 6) for (int i = 0; i < resources_count; i++) resources[i].get = true;				
-			else start_index = match_index + 1;
+			start_index = match_index + 1;
+			if (match_div_char(request.msg[start_index]) || (request.length <= 6)) {
+				request_options = request_options | JSON_FORMAT;
+				if (request.length <= 6) {
+					for (int i = 0; i < resources_count; i++) resources[i].get = true;
+				}	
+			}			
 		}
 		
 		// see if an /all request is present
-        match_index = request.match_string("/all/", start_index);
+        match_index = request.match_string("/all", start_index);
 		if (match_index != NO_MATCH) {
-			for (int i = 0; i < resources_count; i++) resources[i].get = true;
+			start_index = match_index + 1;
+			if (match_div_char(request.msg[start_index]) || (request.length <= 5)) {
+				for (int i = 0; i < resources_count; i++) resources[i].get = true;
+			}
 		}
 
 		// look for individual service/resource requests
