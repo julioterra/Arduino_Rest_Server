@@ -1,3 +1,29 @@
+/*
+ Copyright (c) 2011, Julio Terra
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+
+ */
+
+// RestSever: RESTfull request Library for Arduino.
+// Atmega328 required due to RAM requirements
+
 #ifndef __Restful_server_h__
 #define __Restful_server_h__
 
@@ -8,32 +34,25 @@
 #include "config_rest.h"
 #include "utility/message.h"
 
-
-// #include <../Streaming/Streaming.h>
-
 class RestServer {
 
 	private:
-		resource_description_t *resources_description;	// holds description of resources available
-		byte resources_count;							// holds the number of resources
+		// resource_active_t contains following resource description and state information		
+		resource_t *resources;
+
+		byte resources_count;					// holds the number of resources
 
 		Message request;	// holds the resource requests and temporary data during POST req. reading process
 															
-		byte process_state;						// holds state of RestServer		
-		byte request_type;						// holds request type (GET or POST)
+		byte server_state;						// holds state of RestServer		
 		byte server_options;					// each bit holds a separate server option including:
 		#define CALLBACK			1			//	1. callback enabled (B00000001)
 		#define POST_WITH_GET		2			//	2. post with get and form not displayed (B00000010)
 
+		byte request_type;						// holds request type (GET or POST)
 		byte request_options;					// each bit holds a separate request option including:	
 		#define RESOURCE_REQ		1			//	1. resource description request (B00000001)
 		#define JSON_FORMAT			2			// 	2. return json format (B00000010)
-
-		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
-		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
-		char div_chars[DIV_ELEMENTS + 1];		// element division chars
-
-		long timeout_start_time;				// start time for timeout timer 
 
 		byte post_read_state;					// holds current state when reading post requests
 		#define POST_NOT_PROCESSED	0			//	0: post not yet processed 
@@ -43,12 +62,17 @@ class RestServer {
 		byte post_length_expected;				// holds the expected post length based on header
 		byte post_length_actual;				// holds actual post length 
 
+		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
+		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
+		char div_chars[DIV_ELEMENTS + 1];		// element division chars
+
+		long timeout_start_time;				// start time for timeout timer 
+
 		// methods for reading request 
 		void read_request(char);
 		void get_verb(char);
 		void read_get_requests(char);
 		void read_post_requests(char);
-		void read_services();
 		boolean match_div_char(char);
 		boolean match_eol_char(char);
 		boolean match_eoh_sequence(char);
@@ -56,6 +80,7 @@ class RestServer {
 
 		// methods for parsing request 
 		void parse_request();
+		void parse_resources();
 		int service_match(int, int);
 		int state_match(int, int);
 		int next_element(int);
@@ -74,12 +99,13 @@ class RestServer {
 		void print_form(Stream &_client);
 		void print_flash_string(PGM_P, Stream &_client);
 
-		// methods for resetting data after request, and managing timeout
+		// methods for initializing data after and managing timeout
 		void prepare_for_next_client();
+		void start_timer();
 		void check_timer();
 		
 	public:
-		// process_state constants
+		// server_state constants
 		#define WAITING				0
 		#define READ_VERB			1
 		#define READ_RESOURCE		2	
@@ -88,19 +114,26 @@ class RestServer {
 		#define RESPOND				5
 		#define RESET				6
 
-		// resource_active_t contains following members: int state, boolean get, boolean post		
-		resource_active_t *resources;
-
-		RestServer(resource_description_t *, int);		// initializes the RestServer
+		// initialization and state inquiry methods
+		RestServer();									// initializes the RestServer
+		void register_resources(resource_description_t *, int);
 		void set_callback(boolean);						// sets callback option
 		void set_post_with_get(boolean);				// sets get with post option
+		int get_server_state();							// returns current server state
+		
+		// client handling methods
 		boolean handle_requests(Stream &_client); 		// reads request from Ethernet client
-		int get_resource(char*);						// get state of named resource
-		int get_resource(int);							// get state of numbered resource
-		void set_resource(char*, int);					// set state of named resource
-		void set_resource(int, int);					// set state of numbered resource
 		void respond();									// notifies rest_server when ready to respond
 		boolean handle_response(Stream &_client); 		// sends response to Ethernet client
+
+		// resource state getter and setter methods
+		int resource_get_state(char*);						// get state of named resource
+		int resource_get_state(int);						// get state of numbered resource
+		void resource_set_state(char*, int);				// set state of named resource
+		void resource_set_state(int, int);					// set state of numbered resource
+
+		int resource_post_enabled(char*);						// get state of named resource
+		int resource_post_enabled(int);							// get state of numbered resource
 
 };
 
