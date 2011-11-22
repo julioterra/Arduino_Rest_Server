@@ -106,7 +106,7 @@ class RestServer {
 		
 	public:
 		// server_state constants
-		#define WAITING				0
+		#define LISTENING			0
 		#define READ_VERB			1
 		#define READ_RESOURCE		2	
 		#define PARSE				3
@@ -127,13 +127,18 @@ class RestServer {
 		boolean handle_response(Stream &_client); 		// sends response to Ethernet client
 
 		// resource state getter and setter methods
-		int resource_get_state(char*);						// get state of named resource
-		int resource_get_state(int);						// get state of numbered resource
-		void resource_set_state(char*, int);				// set state of named resource
-		void resource_set_state(int, int);					// set state of numbered resource
+		int resource_get_state(char*);					// get state of named resource
+		int resource_get_state(int);					// get state of numbered resource
+		void resource_set_state(char*, int);			// set state of named resource
+		void resource_set_state(int, int);				// set state of numbered resource
 
-		int resource_post_enabled(char*);						// get state of named resource
-		int resource_post_enabled(int);							// get state of numbered resource
+		boolean resource_post_enabled(char*);			// identify if named resource can be updated
+		boolean resource_post_enabled(int);				// identify if numbered resource can be updated
+
+		boolean resource_requested(char*);				// identify if named resource was requested
+		boolean resource_requested(int);				// identify if numbered resource was requested
+		boolean resource_updated(char*);				// identify if named resource's state was updated
+		boolean resource_updated(int);					// identify if numbered resource's state was update
 
 };
 

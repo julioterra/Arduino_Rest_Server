@@ -57,25 +57,25 @@ void register_rest_server() {
 }
 
 void setup() {
-  	// start the Ethernet connection and the server:
+	// start the Ethernet connection and the server:
 	Ethernet.begin(mac, ip, gateway, subnet);
 	server.begin();
 
-        // start Serial connection
+	// start Serial connection
 	Serial.begin(9600);
 
-        // initialize input and output pins
+	// initialize input and output pins
 	for(int i = 0; i < 6; i++) { pinMode(service_get_pins[i], INPUT); }
 	for(int i = 0; i < 4; i++) { pinMode(service_set_pins[i], OUTPUT); }
 
-        // register resources with resource_server
-        register_rest_server();
+	// register resources with resource_server
+	register_rest_server();
 }
 
 void loop() {
 	// listen for incoming clients
 	Client client = server.available();
-	
+
 	// CONNECTED TO CLIENT
 	if (client) {
 		while (client.connected()) {
@@ -86,7 +86,7 @@ void loop() {
 				write_data();
 				request_server.respond();	// tell RestServer: ready to respond
 			}		
-			
+
 			// send data to client, when ready	
 			if (request_server.handle_response(client)) break;
 		}
@@ -98,21 +98,21 @@ void loop() {
 
 
 void read_data() {
-        int pin_array_number = 0;
+	int pin_array_number = 0;
 	for (int j = 0; j < SERVICES_COUNT; j++) {
-                if (!request_server.resource_post_enabled(j)) {
-        		request_server.resource_set_state(j, analogRead(service_get_pins[pin_array_number]));
-                        pin_array_number++;
-                }
+		if (!request_server.resource_post_enabled(j)) {
+			request_server.resource_set_state(j, analogRead(service_get_pins[pin_array_number]));
+			pin_array_number++;
+		}
 	}			
 }
 
 void write_data() {
-        int pin_array_number = 0;
+	int pin_array_number = 0;
 	for (int j = 0; j < SERVICES_COUNT; j++) {
-                if (request_server.resource_post_enabled(j)) {
-        		analogWrite(service_set_pins[pin_array_number], request_server.resource_get_state(j));
-                        pin_array_number++;
-                }
+		if (request_server.resource_post_enabled(j)) {
+		analogWrite(service_set_pins[pin_array_number], request_server.resource_get_state(j));
+			pin_array_number++;
+		}
 	}			
 }

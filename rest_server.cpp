@@ -38,7 +38,8 @@ RestServer::RestServer(){
 	div_chars[0] = '/'; div_chars[1] = ' '; div_chars[2] = '='; div_chars[3] = '&';
 	eol_sequence[0] = '\r'; eol_sequence[1] = '\n';
 	eoh_sequence[0] = '\r'; eoh_sequence[1] = '\n'; eoh_sequence[2] = '\r'; eoh_sequence[3] = '\n';
-	server_options = B00000011;		
+	// server_options = B00000001;		
+	server_options = 0 | CALLBACK;		
 }
 
 void RestServer::register_resources(resource_description_t *_resources_descriptions, int _resources_count){	
@@ -89,7 +90,7 @@ boolean RestServer::handle_response(Stream &_client) {
 	send_response(_client);
 	check_timer();
 	prepare_for_next_client();	
-	if (server_state == WAITING) return true;
+	if (server_state == LISTENING) return true;
 	else return false;
 }
 
@@ -121,7 +122,7 @@ void RestServer::resource_set_state(int resource_num, int new_state) {
 								   resources[resource_num].range.max);
 }
 
-int RestServer::resource_post_enabled(char *resource_name) {
+boolean RestServer::resource_post_enabled(char *resource_name) {
 	for (int i = 0; i < resources_count; i++) {
 		if (strcmp(resources[i].name, resource_name) == 0) {
 			return resources[i].post_enabled;
@@ -129,8 +130,32 @@ int RestServer::resource_post_enabled(char *resource_name) {
 	}
 }
 
-int RestServer::resource_post_enabled(int resource_num) {
+boolean RestServer::resource_post_enabled(int resource_num) {
 	return resources[resource_num].post_enabled;	
+}
+
+boolean RestServer::resource_requested(char* resource_name) {
+	for (int i = 0; i < resources_count; i++) {
+		if (strcmp(resources[i].name, resource_name) == 0) {
+			return resources[i].get;
+		}
+	}
+}
+
+boolean RestServer::resource_requested(int resource_num) {
+	return resources[resource_num].get;	
+}
+
+boolean RestServer::resource_updated(char* resource_name){
+	for (int i = 0; i < resources_count; i++) {
+		if (strcmp(resources[i].name, resource_name) == 0) {
+			return resources[i].post;
+		}
+	}
+}
+
+boolean RestServer::resource_updated(int resource_num) {
+	return resources[resource_num].post;	
 }
 
 
@@ -153,12 +178,12 @@ void RestServer::prepare_for_next_client() {
 			resources[i].get = false;
 			resources[i].post = false;
 		}
-		server_state = WAITING;
+		server_state = LISTENING;
 	}
 }
 
 void RestServer::start_timer() {
-	if (server_state == WAITING) {
+	if (server_state == LISTENING) {
 		if (request.length == 0) timeout_start_time = millis();
 		server_state = READ_VERB;
 	} 
@@ -172,8 +197,7 @@ void RestServer::check_timer() {
  READ METHODS
  ********************************************************/
 void RestServer::read_request(char new_char) {
-	// Serial.print(new_char);
-
+	Serial.print(new_char);
 	if (server_state == READ_VERB) get_verb(new_char);	
 
 	else if (server_state == READ_RESOURCE) {
@@ -184,11 +208,6 @@ void RestServer::read_request(char new_char) {
 }
 
 void RestServer::get_verb(char new_char) {
-	if (server_state == WAITING) {
-		if (request.length == 0) timeout_start_time = millis();
-		server_state = READ_VERB;
-	} 
-	
 	if (server_state == READ_VERB) {
 		request.add(new_char);
 		
