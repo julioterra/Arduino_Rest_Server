@@ -555,9 +555,11 @@ void RestServer::print_json(Stream &_client) {
 
 	// determine number of of resources that have been requested (via get or post methods)
 	byte resources_get_post_count = 0; 	
-    for(int i = 0; i < int(resources_get_post_count); i++) {
-		if (resources[i].get || resources[i].post) resources_get_post_count++;
+    for(int i = 0; i < int(resources_count); i++) {
+		if (resources[i].get || resources[i].post) resources_get_post_count ++;
 	}
+	Serial.print ("resources_get_post_count: ");
+	Serial.println (int(resources_get_post_count));
 
 	print_flash_string(PSTR("[\r\n"), _client); 
     for(int i = 0; i < int(resources_count); i++) {
@@ -567,7 +569,11 @@ void RestServer::print_json(Stream &_client) {
 			print_flash_string(PSTR("\",\r\n\"state\":"), _client); 
 			_client.print(resources[i].state); 
 			print_flash_string(PSTR("\r\n}"), _client);
-			if (i < int(resources_get_post_count) - 1) print_flash_string(PSTR(","), _client);
+			if (i < (int(resources_get_post_count) - 1)) {
+				Serial.print ("print comma: ");
+				Serial.println (i);
+				print_flash_string(PSTR(","), _client);
+			}
 			print_flash_string(PSTR("\r\n"), _client);					
         }
     }
