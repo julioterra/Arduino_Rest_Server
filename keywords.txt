@@ -1,0 +1,40 @@
+#######################################
+# Syntax Coloring Map for RestServer
+
+########################
+# 1. Datatypes (KEYWORD1)
+
+resource_range_t	KEYWORD1
+resource_description_t	KEYWORD1
+resource_t	KEYWORD1
+RestServer	KEYWORD1
+
+########################
+# 2. Methods and Functions (KEYWORD2)
+
+register_resources	KEYWORD2
+set_callback	KEYWORD2
+set_post_with_get	KEYWORD2
+get_server_state	KEYWORD2
+handle_requests	KEYWORD2
+respond	KEYWORD2
+handle_response	KEYWORD2
+resource_get_state	KEYWORD2
+resource_set_state	KEYWORD2
+resource_post_enabled	KEYWORD2
+resource_requested	KEYWORD2
+resource_updated	KEYWORD2
+
+########################
+# 3. Constants (LITERAL1) 
+
+LISTENING	LITERAL1
+READ_VERB	LITERAL1
+READ_RESOURCE	LITERAL1
+PARSE	LITERAL1
+PROCESS	LITERAL1
+RESPOND	LITERAL1
+RESET	LITERAL1
+REQUEST_MAX_LENGTH	LITERAL1
+NAME_LENGTH	LITERAL1
+TIMEOUT_INTERVAL	LITERAL1

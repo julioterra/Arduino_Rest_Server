@@ -45,10 +45,10 @@ RestServer::RestServer(){
 void RestServer::register_resources(resource_description_t *_resources_descriptions, int _resources_count){	
 	resources_count = _resources_count;
 
-	resources = (resource_t*) malloc(sizeof(resource_t) * resources_count);
-	if (resources) memset(resources, 0, sizeof(sizeof(resource_t) * resources_count));
+	resources = (resource_t*) malloc(sizeof(resource_t) * int(resources_count));
+	if (resources) memset(resources, 0, sizeof(sizeof(resource_t) * int(resources_count)));
 
-	for (int i = 0; i < resources_count; i++) {
+	for (int i = 0; i < int(resources_count); i++) {
 		for (int k = 0; k < NAME_LENGTH; k ++) resources[i].name[k] = _resources_descriptions[i].name[k];
 		resources[i].post_enabled = _resources_descriptions[i].post_enabled;
 		resources[i].range.min = _resources_descriptions[i].range.min;
@@ -56,6 +56,9 @@ void RestServer::register_resources(resource_description_t *_resources_descripti
 		resources[i].state = 0;
 	}
 	
+	Serial.print("[RestServer::register_resources] resources count = ");
+	Serial.print(int(resources_count));
+
 	prepare_for_next_client();	
 }
 
@@ -95,7 +98,7 @@ boolean RestServer::handle_response(Stream &_client) {
 }
 
 int RestServer::resource_get_state(char *resource_name) {
-	for (int i = 0; i < resources_count; i++) {
+	for (int i = 0; i < int(resources_count); i++) {
 		if (strcmp(resources[i].name, resource_name) == 0) {
 			return resources[i].state;
 		}
@@ -107,7 +110,7 @@ int RestServer::resource_get_state(int resource_num) {
 }
 
 void RestServer::resource_set_state(char *resource_name, int new_state) {
-	for (int i = 0; i < resources_count; i++) {
+	for (int i = 0; i < int(resources_count); i++) {
 		if (strcmp(resources[i].name, resource_name) == 0) {
 			resources[i].state = constrain(new_state, 
 										   resources[i].range.min, 
@@ -123,7 +126,7 @@ void RestServer::resource_set_state(int resource_num, int new_state) {
 }
 
 boolean RestServer::resource_post_enabled(char *resource_name) {
-	for (int i = 0; i < resources_count; i++) {
+	for (int i = 0; i < int(resources_count); i++) {
 		if (strcmp(resources[i].name, resource_name) == 0) {
 			return resources[i].post_enabled;
 		}
@@ -135,7 +138,7 @@ boolean RestServer::resource_post_enabled(int resource_num) {
 }
 
 boolean RestServer::resource_requested(char* resource_name) {
-	for (int i = 0; i < resources_count; i++) {
+	for (int i = 0; i < int(resources_count); i++) {
 		if (strcmp(resources[i].name, resource_name) == 0) {
 			return resources[i].get;
 		}
@@ -147,7 +150,7 @@ boolean RestServer::resource_requested(int resource_num) {
 }
 
 boolean RestServer::resource_updated(char* resource_name){
-	for (int i = 0; i < resources_count; i++) {
+	for (int i = 0; i < int(resources_count); i++) {
 		if (strcmp(resources[i].name, resource_name) == 0) {
 			return resources[i].post;
 		}
@@ -174,7 +177,7 @@ void RestServer::prepare_for_next_client() {
 		post_length_actual = 0;
 
 		request_options = B00000000;
-	 	for (byte i = 0; i < resources_count; i++) {
+	 	for (byte i = 0; i < int(resources_count); i++) {
 			resources[i].get = false;
 			resources[i].post = false;
 		}
@@ -306,7 +309,7 @@ void RestServer::parse_request() {
         // Check for root request 
         int match_index = request.match_string("/", start_index);
         if (match_index != NO_MATCH && request.length == 1) { 
-			for (int i = 0; i < resources_count; i++) resources[i].get = true;				
+			for (int i = 0; i < int(resources_count); i++) resources[i].get = true;				
 			server_state = PROCESS;
 			return;
         } 
@@ -326,7 +329,7 @@ void RestServer::parse_request() {
 			if (match_div_char(request.msg[start_index]) || (request.length <= 6)) {
 				request_options = request_options | JSON_FORMAT;
 				if (request.length <= 6) {
-					for (int i = 0; i < resources_count; i++) resources[i].get = true;
+					for (int i = 0; i < int(resources_count); i++) resources[i].get = true;
 				}	
 			}			
 		}
@@ -336,7 +339,7 @@ void RestServer::parse_request() {
 		if (match_index != NO_MATCH) {
 			start_index = match_index + 1;
 			if (match_div_char(request.msg[start_index]) || (request.length <= 5)) {
-				for (int i = 0; i < resources_count; i++) resources[i].get = true;
+				for (int i = 0; i < int(resources_count); i++) resources[i].get = true;
 			}
 		}
 
@@ -373,7 +376,7 @@ void RestServer::parse_resources() {
 		}
 
 		// loop through each resource/service name to look for a match
-		for (int i = 0; i < resources_count; i++) {
+		for (int i = 0; i < int(resources_count); i++) {
 			int match_index = service_match(i, cur_start_pos);
 			if (match_index != NO_MATCH) { 
 				next_start_pos = match_index; 
@@ -500,7 +503,7 @@ void RestServer::process() {
 	if (server_state == PROCESS) {
 
 		boolean service_active = false;
-		for (int i = 0; i < resources_count; i++) {
+		for (int i = 0; i < int(resources_count); i++) {
 			if (resources[i].get || resources[i].post) service_active = true;
 		}
 
@@ -535,7 +538,7 @@ void RestServer::print_html(Stream &_client) {
 	if ((request_options & JSON_FORMAT) == 0) {
 		print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"), _client);
 
-	    for(int i = 0; i < resources_count; i++) {
+	    for(int i = 0; i < int(resources_count); i++) {
 			if (resources[i].get || resources[i].post) {
 				_client.print(resources[i].name);
 				print_flash_string(PSTR(": "), _client); 
@@ -550,15 +553,21 @@ void RestServer::print_html(Stream &_client) {
 void RestServer::print_json(Stream &_client) {
 	print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"), _client);
 
+	// determine number of of resources that have been requested (via get or post methods)
+	byte resources_get_post_count = 0; 	
+    for(int i = 0; i < int(resources_get_post_count); i++) {
+		if (resources[i].get || resources[i].post) resources_get_post_count++;
+	}
+
 	print_flash_string(PSTR("[\r\n"), _client); 
-    for(int i = 0; i < resources_count; i++) {
+    for(int i = 0; i < int(resources_count); i++) {
 		if (resources[i].get || resources[i].post) {
-			print_flash_string(PSTR("{\r\n'resource_name':'"), _client); 
+			print_flash_string(PSTR("{\r\n\"resource_name\":\""), _client); 
 			_client.print(resources[i].name);
-			print_flash_string(PSTR("',\r\n'state':"), _client); 
+			print_flash_string(PSTR("\",\r\n\"state\":"), _client); 
 			_client.print(resources[i].state); 
 			print_flash_string(PSTR("\r\n}"), _client);
-			if (i < resources_count - 1) print_flash_string(PSTR(","), _client);
+			if (i < int(resources_get_post_count) - 1) print_flash_string(PSTR(","), _client);
 			print_flash_string(PSTR("\r\n"), _client);					
         }
     }
@@ -569,18 +578,18 @@ void RestServer::print_resource_description(Stream &_client) {
 	print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"), _client);
 
 	print_flash_string(PSTR("[\r\n"), _client); 
-	for(byte i = 0; i < resources_count; i++) {
-		print_flash_string(PSTR("{\r\n'resource_name':'"), _client); 
+	for(byte i = 0; i < int(resources_count); i++) {
+		print_flash_string(PSTR("{\r\n\"resource_name\":\""), _client); 
 		_client.print(resources[i].name);
-		print_flash_string(PSTR("',\r\n'post_enabled':'"), _client); 
+		print_flash_string(PSTR("\",\r\n\"post_enabled\":\""), _client); 
 		if (resources[i].post_enabled) print_flash_string(PSTR("true"), _client); 
 		else print_flash_string(PSTR("false"), _client); 
-		print_flash_string(PSTR("',\r\n'range':{'min':"), _client); 
+		print_flash_string(PSTR("\",\r\n\"range\":{\"min\":"), _client); 
 		_client.print(resources[i].range.min);
-		print_flash_string(PSTR(",'max':"), _client); 
+		print_flash_string(PSTR(",\"max\":"), _client); 
 		_client.print(resources[i].range.max);					
 		print_flash_string(PSTR("}\r\n}"), _client);
-		if (i < resources_count - 1) print_flash_string(PSTR(","), _client);
+		if (i < (int(resources_count) - 1)) print_flash_string(PSTR(","), _client);
 		print_flash_string(PSTR("\r\n"), _client);				
 	}
 	print_flash_string(PSTR("]\r\n"), _client); 
@@ -590,7 +599,7 @@ void RestServer::print_form(Stream &_client) {
 	if ((request_options & JSON_FORMAT) == 0) {	
 		print_flash_string(PSTR("<br />Update State<br />\r\n"), _client);
 		print_flash_string(PSTR("<form style='display:inline;' action='"), _client); 
-	    for(byte i = 0; i < resources_count; i++) { 
+	    for(byte i = 0; i < int(resources_count); i++) { 
 			if (resources[i].get && resources[i].post_enabled) {
 				print_flash_string(PSTR("/"), _client);  
 				_client.print(resources[i].name);	
@@ -598,7 +607,7 @@ void RestServer::print_form(Stream &_client) {
 		}
 		print_flash_string(PSTR("' method='POST'>"), _client);
 
-	    for(byte i = 0; i < resources_count; i++) {
+	    for(byte i = 0; i < int(resources_count); i++) {
 			if (resources[i].get && resources[i].post_enabled) {
 				_client.print(resources[i].name);
 				print_flash_string(PSTR(": <input type='text' name='"), _client);
