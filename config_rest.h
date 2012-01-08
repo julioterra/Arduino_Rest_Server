@@ -27,7 +27,11 @@
 #ifndef __config_rest__
 #define __config_rest__
 
-#include "WProgram.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+  #include "Arduino.h"
+  #else
+  #include "WProgram.h"
+#endif
 
 #define REQUEST_MAX_LENGTH 		75		// maximum length of incoming requests
 #define NAME_LENGTH				15		// maximum length of service names

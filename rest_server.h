@@ -27,7 +27,12 @@
 #ifndef __Restful_server_h__
 #define __Restful_server_h__
 
-#include "WProgram.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+  #include "Arduino.h"
+  #else
+  #include "WProgram.h"
+#endif
+
 #include <stream.h> 
 #include <string.h>
 #include <avr/pgmspace.h>
