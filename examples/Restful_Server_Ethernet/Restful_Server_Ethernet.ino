@@ -34,7 +34,7 @@ byte gateway[] = {192,168,2,1};
 byte subnet[] = {255,255,0,0};
 
 // Start a TCP server on port 7999
-Server server(7999);
+EthernetServer server(7999);
 
 // Create instance of the RestServer
 RestServer request_server = RestServer();
@@ -61,9 +61,6 @@ void setup() {
 	Ethernet.begin(mac, ip, gateway, subnet);
 	server.begin();
 
-	// start Serial connection
-	Serial.begin(9600);
-
 	// initialize input and output pins
 	for(int i = 0; i < 6; i++) { pinMode(service_get_pins[i], INPUT); }
 	for(int i = 0; i < 4; i++) { pinMode(service_set_pins[i], OUTPUT); }
@@ -74,7 +71,7 @@ void setup() {
 
 void loop() {
 	// listen for incoming clients
-	Client client = server.available();
+	EthernetClient client = server.available();
 
 	// CONNECTED TO CLIENT
 	if (client) {

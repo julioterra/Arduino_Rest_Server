@@ -61,9 +61,6 @@ void setup() {
 	Ethernet.begin(mac, ip, gateway, subnet);
 	server.begin();
 
-	// start Serial connection
-	Serial.begin(9600);
-
 	// initialize input and output pins
 	for(int i = 0; i < 6; i++) { pinMode(service_get_pins[i], INPUT); }
 	for(int i = 0; i < 4; i++) { pinMode(service_set_pins[i], OUTPUT); }
