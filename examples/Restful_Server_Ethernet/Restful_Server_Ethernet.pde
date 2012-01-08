@@ -21,7 +21,6 @@
 #include <rest_server.h>
 #include <SPI.h>
 #include <Ethernet.h>
-#include <Streaming.h>
 
 #define SERVICES_COUNT	10
 #define CRLF "\r\n"
@@ -34,7 +33,7 @@ byte gateway[] = {192,168,2,1};
 byte subnet[] = {255,255,0,0};
 
 // Start a TCP server on port 7999
-Server server(7999);
+EthernetServer server(7999);
 
 // Create instance of the RestServer
 RestServer request_server = RestServer();
@@ -71,7 +70,7 @@ void setup() {
 
 void loop() {
 	// listen for incoming clients
-	Client client = server.available();
+	EthernetClient client = server.available();
 
 	// CONNECTED TO CLIENT
 	if (client) {
