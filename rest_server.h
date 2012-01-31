@@ -127,9 +127,9 @@ class RestServer {
 		int get_server_state();							// returns current server state
 		
 		// client handling methods
-		boolean handle_requests(Stream &_client); 		// reads request from Ethernet client
+		boolean handle_requests(Stream &_client); 		// reads request from client
 		void respond();									// notifies rest_server when ready to respond
-		boolean handle_response(Stream &_client); 		// sends response to Ethernet client
+		boolean handle_response(Stream &_client); 		// sends response to client
 
 		// resource state getter and setter methods
 		int resource_get_state(char*);					// get state of named resource

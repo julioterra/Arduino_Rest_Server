@@ -14,7 +14,6 @@
 	
  **********************************************************************/
 
-#include <Streaming.h>
 #include <config_rest.h>
 #include <rest_server.h>
 
@@ -44,7 +43,7 @@ void register_rest_server() {
 
 void setup() {
 	// start Serial connection
-	Serial.begin(9600);
+	Serial.begin(4800);
 
 	// initialize input and output pins
 	for(int i = 0; i < 6; i++) { pinMode(service_get_pins[i], INPUT); }

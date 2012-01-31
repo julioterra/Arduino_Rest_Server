@@ -56,8 +56,8 @@ void RestServer::register_resources(resource_description_t *_resources_descripti
 		resources[i].state = 0;
 	}
 	
-	Serial.print("[RestServer::register_resources] resources count = ");
-	Serial.print(int(resources_count));
+	// Serial.print("[RestServer::register_resources] resources count = ");
+	// Serial.print(int(resources_count));
 
 	prepare_for_next_client();	
 }
@@ -530,6 +530,9 @@ void RestServer::send_response(Stream &_client) {
 			// handle HTML requests
 			else if ((request_options & JSON_FORMAT) == 0) print_html(_client);
 		}
+
+		Serial.print("__END__");
+
 		server_state = RESET;
 	}
 }
@@ -547,6 +550,7 @@ void RestServer::print_html(Stream &_client) {
 	        }
 	    }
 		print_form(_client);
+		print_flash_string(PSTR("\r\n\r\n\r\n"), _client); 
 	}
 }
 
@@ -558,8 +562,6 @@ void RestServer::print_json(Stream &_client) {
     for(int i = 0; i < int(resources_count); i++) {
 		if (resources[i].get || resources[i].post) resources_get_post_count ++;
 	}
-	Serial.print ("resources_get_post_count: ");
-	Serial.println (int(resources_get_post_count));
 
 	print_flash_string(PSTR("[\r\n"), _client); 
     for(int i = 0; i < int(resources_count); i++) {
@@ -570,14 +572,12 @@ void RestServer::print_json(Stream &_client) {
 			_client.print(resources[i].state); 
 			print_flash_string(PSTR("\r\n}"), _client);
 			if (i < (int(resources_get_post_count) - 1)) {
-				Serial.print ("print comma: ");
-				Serial.println (i);
 				print_flash_string(PSTR(","), _client);
 			}
 			print_flash_string(PSTR("\r\n"), _client);					
         }
     }
-	print_flash_string(PSTR("]\r\n"), _client); 			
+	print_flash_string(PSTR("]\r\n\r\n\r\n"), _client); 			
 }
 
 void RestServer::print_resource_description(Stream &_client) {
@@ -598,7 +598,7 @@ void RestServer::print_resource_description(Stream &_client) {
 		if (i < (int(resources_count) - 1)) print_flash_string(PSTR(","), _client);
 		print_flash_string(PSTR("\r\n"), _client);				
 	}
-	print_flash_string(PSTR("]\r\n"), _client); 
+	print_flash_string(PSTR("]\r\n\r\n\r\n"), _client); 
 }
 
 void RestServer::print_form(Stream &_client) {	
@@ -628,8 +628,9 @@ void RestServer::print_form(Stream &_client) {
 
 void RestServer::print_flash_string(PGM_P string_const, Stream &_client) {
     char cur_char;
-    while ((cur_char = pgm_read_byte(string_const++)) != 0)
+    while ((cur_char = pgm_read_byte(string_const++)) != 0) {
         _client.print(cur_char);
+	}
 }
 
 
