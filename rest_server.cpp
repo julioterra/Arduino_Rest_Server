@@ -200,7 +200,7 @@ void RestServer::check_timer() {
  READ METHODS
  ********************************************************/
 void RestServer::read_request(char new_char) {
-	Serial.print(new_char);
+	// Serial.print(new_char);
 	if (server_state == READ_VERB) get_verb(new_char);	
 
 	else if (server_state == READ_RESOURCE) {
@@ -322,7 +322,7 @@ void RestServer::parse_request() {
 			return;
         } 
 
-		// see if this is a json request is present
+		// see if this is a json request 
         match_index = request.match_string("/json", start_index);
 		if (match_index != NO_MATCH) {
 			start_index = match_index + 1;
@@ -333,6 +333,8 @@ void RestServer::parse_request() {
 				}	
 			}			
 		}
+		// if JSON_LOCK is set to 1 then make response in json format
+		if (JSON_LOCK == 1) request_options = request_options | JSON_FORMAT;
 		
 		// see if an /all request is present
         match_index = request.match_string("/all", start_index);
@@ -519,19 +521,25 @@ void RestServer::process() {
  ********************************************************/
 void RestServer::send_response(Stream &_client) {
 	if (server_state == RESPOND) {
+		Serial.println("GOT TO RESPOND");
 
 		// handle resource info/description requests
-		if ((request_options & RESOURCE_REQ) == RESOURCE_REQ) print_resource_description(_client);
+		if ((request_options & RESOURCE_REQ) == RESOURCE_REQ) {
+			print_resource_description(_client);
 
 		// handle standard GET and POST requests
-		else {
+		} else {
 			// handle requests in JSON format
-			if ((request_options & JSON_FORMAT) == JSON_FORMAT) print_json(_client);
+			if ((request_options & JSON_FORMAT) == JSON_FORMAT) {
+				print_json(_client);
+			}
 			// handle HTML requests
-			else if ((request_options & JSON_FORMAT) == 0) print_html(_client);
+			else if (((request_options & JSON_FORMAT) == 0)) {
+				print_html(_client);
+			}
 		}
 
-		Serial.print("__END__");
+		// Serial.print("__END__");
 
 		server_state = RESET;
 	}

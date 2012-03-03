@@ -67,14 +67,9 @@ typedef struct resource_t {
 	boolean post;				// post request flag for this resource
 };
 
-// constants that identify the number and type of requests that are
-// supported by the RestServer library
-#define GET_REQUESTS			 0		// set GET_REQUESTS equals 0
-#define POST_REQUESTS			 1		// set POST_REQUESTS equals 1
-
-// constant used to identify non-matches in several methods from RestServer and Message classes
-#define NO_MATCH				-1		
-
+#define JSON_LOCK			 	1		// when set to 1 forces all response to be provided in json format
+										// when set to 0 responses will be provided in json only when requested
+										
 // constants related to end of line and end of header sequences, and div characters 
 #define DIV_ELEMENTS			 4		// number of DIV_ELEMENTS available
 #define EOL_LENGTH  	 		 2		// number of characters in end of line sequence (EOL)

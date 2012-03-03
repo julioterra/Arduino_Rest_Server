@@ -56,8 +56,8 @@ class RestServer {
 
 		byte request_type;						// holds request type (GET or POST)
 		byte request_options;					// each bit holds a separate request option including:	
-		#define RESOURCE_REQ		1			//	1. resource description request (B00000001)
-		#define JSON_FORMAT			2			// 	2. return json format (B00000010)
+		#define JSON_FORMAT			1			// 	2. return json format (B00000001)
+		#define RESOURCE_REQ		2			//	1. resource description request (B00000010)
 
 		byte post_read_state;					// holds current state when reading post requests
 		#define POST_NOT_PROCESSED	0			//	0: post not yet processed 
@@ -66,6 +66,14 @@ class RestServer {
 		#define POST_READ			3			//	3: post data has been read
 		byte post_length_expected;				// holds the expected post length based on header
 		byte post_length_actual;				// holds actual post length 
+
+		// constants that identify the number and type of requests that are
+		// supported by the RestServer library
+		#define GET_REQUESTS			 0		// set GET_REQUESTS equals 0
+		#define POST_REQUESTS			 1		// set POST_REQUESTS equals 1
+
+		// constant used to identify non-matches in several methods from RestServer and Message classes
+		#define NO_MATCH				-1		
 
 		char eol_sequence[EOL_LENGTH + 1];		// request end sequence match chars
 		char eoh_sequence[EOH_LENGTH + 1];		// request end sequence match chars
