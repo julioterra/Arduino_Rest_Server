@@ -15,6 +15,7 @@ RestServer	KEYWORD1
 register_resources	KEYWORD2
 set_callback	KEYWORD2
 set_post_with_get	KEYWORD2
+set_json_lock	KEYWORD2
 get_server_state	KEYWORD2
 handle_requests	KEYWORD2
 respond	KEYWORD2
