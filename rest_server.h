@@ -53,6 +53,7 @@ class RestServer {
 		byte server_options;					// each bit holds a separate server option including:
 		#define CALLBACK			1			//	1. callback enabled (B00000001)
 		#define POST_WITH_GET		2			//	2. post with get and form not displayed (B00000010)
+		#define JSON_LOCK			4			//	3. set all responses to json format (B00000100)
 
 		byte request_type;						// holds request type (GET or POST)
 		byte request_options;					// each bit holds a separate request option including:	
@@ -132,6 +133,7 @@ class RestServer {
 		void register_resources(resource_description_t *, int);
 		void set_callback(boolean);						// sets callback option
 		void set_post_with_get(boolean);				// sets get with post option
+		void set_json_lock(boolean);					// sets json lock option
 		int get_server_state();							// returns current server state
 		
 		// client handling methods

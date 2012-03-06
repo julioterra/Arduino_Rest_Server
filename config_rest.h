@@ -66,9 +66,6 @@ typedef struct resource_t {
 	boolean get;				// get request flag for this resource 
 	boolean post;				// post request flag for this resource
 };
-
-#define JSON_LOCK			 	1		// when set to 1 forces all response to be provided in json format
-										// when set to 0 responses will be provided in json only when requested
 										
 // constants related to end of line and end of header sequences, and div characters 
 #define DIV_ELEMENTS			 4		// number of DIV_ELEMENTS available

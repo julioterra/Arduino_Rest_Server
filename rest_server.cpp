@@ -56,9 +56,6 @@ void RestServer::register_resources(resource_description_t *_resources_descripti
 		resources[i].state = 0;
 	}
 	
-	// Serial.print("[RestServer::register_resources] resources count = ");
-	// Serial.print(int(resources_count));
-
 	prepare_for_next_client();	
 }
 
@@ -69,6 +66,11 @@ void RestServer::set_callback(boolean _flag) {
 void RestServer::set_post_with_get(boolean _flag) {
 	_flag ? (server_options = server_options | POST_WITH_GET) : (server_options = server_options & (POST_WITH_GET^0x00));
 }
+
+void RestServer::set_json_lock(boolean _flag) {
+	_flag ? (server_options = server_options | JSON_LOCK) : (server_options = server_options & (JSON_LOCK^0x00));
+}
+
 
 int RestServer::get_server_state() {
 	return server_state;
@@ -306,6 +308,11 @@ void RestServer::parse_request() {
 	if (server_state == PARSE) {
 	    int start_index = 0;
 
+		// if JSON_LOCK is set then make response in json format
+		if (server_options & JSON_LOCK == JSON_LOCK) {
+			request_options = request_options | JSON_FORMAT;
+		}
+		
         // Check for root request 
         int match_index = request.match_string("/", start_index);
         if (match_index != NO_MATCH && request.length == 1) { 
@@ -333,9 +340,7 @@ void RestServer::parse_request() {
 				}	
 			}			
 		}
-		// if JSON_LOCK is set to 1 then make response in json format
-		if (JSON_LOCK == 1) request_options = request_options | JSON_FORMAT;
-		
+
 		// see if an /all request is present
         match_index = request.match_string("/all", start_index);
 		if (match_index != NO_MATCH) {
@@ -521,7 +526,7 @@ void RestServer::process() {
  ********************************************************/
 void RestServer::send_response(Stream &_client) {
 	if (server_state == RESPOND) {
-		Serial.println("GOT TO RESPOND");
+		// Serial.print("__START__");
 
 		// handle resource info/description requests
 		if ((request_options & RESOURCE_REQ) == RESOURCE_REQ) {
