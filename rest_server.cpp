@@ -40,6 +40,7 @@ RestServer::RestServer(){
 	eoh_sequence[0] = '\r'; eoh_sequence[1] = '\n'; eoh_sequence[2] = '\r'; eoh_sequence[3] = '\n';
 	// server_options = B00000001;		
 	server_options = 0 | CALLBACK;		
+	debug_code = false;
 }
 
 void RestServer::register_resources(resource_description_t *_resources_descriptions, int _resources_count){	
@@ -71,6 +72,10 @@ void RestServer::set_json_lock(boolean _flag) {
 	_flag ? (server_options = server_options | JSON_LOCK) : (server_options = server_options & (JSON_LOCK^0x00));
 }
 
+void RestServer::set_debug_code(boolean _flag) {
+	_flag ? (debug_code = true) : (debug_code = false);
+}
+
 
 int RestServer::get_server_state() {
 	return server_state;
@@ -89,6 +94,10 @@ boolean RestServer::handle_requests(Stream &_client) {
 
 void RestServer::respond() {
 	if (server_state == PROCESS) server_state = RESPOND;
+
+	// debug code
+	if (debug_code) Serial.println("respond method call received\n");
+	
 }
 
 boolean RestServer::handle_response(Stream &_client) {
@@ -188,21 +197,29 @@ void RestServer::prepare_for_next_client() {
 }
 
 void RestServer::start_timer() {
-	if (server_state == LISTENING) {
+	if ((server_state == LISTENING) && (request.length == 0)) {
 		if (request.length == 0) timeout_start_time = millis();
 		server_state = READ_VERB;
 	} 
 }
 
 void RestServer::check_timer() {
-	if (millis() - timeout_start_time > TIMEOUT_INTERVAL) server_state = RESET;
+	if ((millis() - timeout_start_time > TIMEOUT_INTERVAL) && (request.length > 0)) {
+		server_state = RESET;
+
+		// debug code
+		if (debug_code) Serial.println("response timeout - reset timer");
+
+	}
 }
 	
 /********************************************************
  READ METHODS
  ********************************************************/
 void RestServer::read_request(char new_char) {
-	// Serial.print(new_char);
+	// debug code
+	if (debug_code) Serial.print(new_char);
+	
 	if (server_state == READ_VERB) get_verb(new_char);	
 
 	else if (server_state == READ_RESOURCE) {
@@ -227,6 +244,9 @@ void RestServer::get_verb(char new_char) {
 
 			server_state = READ_RESOURCE;			
 			request.clear();
+
+			// debug code
+			if (debug_code) Serial.println("\nrestful request received");
 		}
 	}
 }
@@ -316,6 +336,10 @@ void RestServer::parse_request() {
         // Check for root request 
         int match_index = request.match_string("/", start_index);
         if (match_index != NO_MATCH && request.length == 1) { 
+
+			// debug code
+			if (debug_code) Serial.println("root request received");
+			
 			for (int i = 0; i < int(resources_count); i++) resources[i].get = true;				
 			server_state = PROCESS;
 			return;
@@ -516,6 +540,10 @@ void RestServer::process() {
 
 		// Update process state if callback is turned off, or no services have been requested or updated
 		if (server_options & CALLBACK == 0 || !service_active) server_state = RESPOND;   
+		
+		// debug code
+		if (debug_code) Serial.println("waiting for respond method call");
+		
 	}
 }
 
@@ -526,7 +554,7 @@ void RestServer::process() {
  ********************************************************/
 void RestServer::send_response(Stream &_client) {
 	if (server_state == RESPOND) {
-		// Serial.print("__START__");
+		// Serial.println("__START__");
 
 		// handle resource info/description requests
 		if ((request_options & RESOURCE_REQ) == RESOURCE_REQ) {
@@ -544,7 +572,7 @@ void RestServer::send_response(Stream &_client) {
 			}
 		}
 
-		// Serial.print("__END__");
+		// Serial.println("__END__");
 
 		server_state = RESET;
 	}

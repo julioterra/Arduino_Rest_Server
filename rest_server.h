@@ -48,6 +48,8 @@ class RestServer {
 		byte resources_count;					// holds the number of resources
 
 		Message request;	// holds the resource requests and temporary data during POST req. reading process
+					
+		boolean debug_code;
 															
 		byte server_state;						// holds state of RestServer		
 		byte server_options;					// each bit holds a separate server option including:
@@ -134,6 +136,7 @@ class RestServer {
 		void set_callback(boolean);						// sets callback option
 		void set_post_with_get(boolean);				// sets get with post option
 		void set_json_lock(boolean);					// sets json lock option
+		void set_debug_code(boolean);					// prints debug messages
 		int get_server_state();							// returns current server state
 		
 		// client handling methods
