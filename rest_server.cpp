@@ -198,7 +198,7 @@ void RestServer::prepare_for_next_client() {
 
 void RestServer::start_timer() {
 	if ((server_state == LISTENING) && (request.length == 0)) {
-		if (request.length == 0) timeout_start_time = millis();
+		timeout_start_time = millis();
 		server_state = READ_VERB;
 	} 
 }
