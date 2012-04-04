@@ -50,7 +50,8 @@ class RestServer {
 		Message request;	// holds the resource requests and temporary data during POST req. reading process
 					
 		boolean debug_code;
-															
+		Print &debug_log;
+
 		byte server_state;						// holds state of RestServer		
 		byte server_options;					// each bit holds a separate server option including:
 		#define CALLBACK			1			//	1. callback enabled (B00000001)
@@ -131,14 +132,14 @@ class RestServer {
 		#define RESET				6
 
 		// initialization and state inquiry methods
-		RestServer();									// initializes the RestServer
+		RestServer(Print &_serial);						// initializes the RestServer, pass the Serial port for debugging 
 		void register_resources(resource_description_t *, int);
 		void set_callback(boolean);						// sets callback option
 		void set_post_with_get(boolean);				// sets get with post option
 		void set_json_lock(boolean);					// sets json lock option
 		void set_debug_code(boolean);					// prints debug messages
 		int get_server_state();							// returns current server state
-		
+
 		// client handling methods
 		boolean handle_requests(Stream &_client); 		// reads request from client
 		void respond();									// notifies rest_server when ready to respond
