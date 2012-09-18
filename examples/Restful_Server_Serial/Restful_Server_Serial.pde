@@ -21,7 +21,7 @@
 #define CRLF "\r\n"
 
 // Create instance of the RestServer
-RestServer request_server = RestServer();
+RestServer request_server = RestServer(Serial);
 
 // input and output pin assignments
 int service_get_pins [] = {A0, A1, A2, A3, A4, A5};
