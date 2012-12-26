@@ -56,20 +56,26 @@ void RestServer::register_resources(resource_description_t *_resources_descripti
 		resources[i].range.max = _resources_descriptions[i].range.max;
 		resources[i].state = 0;
 	}
-	prepare_for_next_client();	
+	prepare_for_next_client();
 }
 
 
 void RestServer::set_callback(boolean _flag) {
 	_flag ? (server_options = server_options | CALLBACK) : (server_options &= ~CALLBACK);
+	if (debug_code) debug_log.print(F("[set_callback] updated server_options: "));	
+	if (debug_code) debug_log.println(request_options, BIN);	
 }
 
 void RestServer::set_post_with_get(boolean _flag) {
 	_flag ? (server_options = server_options | POST_WITH_GET) : (server_options &= ~POST_WITH_GET);
+	if (debug_code) debug_log.print(F("[set_post_with_get] updated server_options: "));	
+	if (debug_code) debug_log.println(request_options, BIN);	
 }
 
 void RestServer::set_json_lock(boolean _flag) {
 	_flag ? (server_options = server_options | JSON_LOCK) : (server_options &= ~JSON_LOCK);
+	if (debug_code) debug_log.print(F("[set_json_lock] updated server_options: "));	
+	if (debug_code) debug_log.println(request_options, BIN);	
 }
 
 void RestServer::set_debug_code(boolean _flag) {
@@ -329,8 +335,11 @@ void RestServer::parse_request() {
 	    int start_index = 0;
 
 		// if JSON_LOCK is set then make response in json format
-		if (server_options & JSON_LOCK == JSON_LOCK) {
+		if ((server_options & JSON_LOCK) == JSON_LOCK) {
 			request_options = request_options | JSON_FORMAT;
+
+			if (debug_code) debug_log.print(F("[parse_request] updated request_options: "));	
+			if (debug_code) debug_log.println(request_options, BIN);	
 		}
 		
         // Check for root request 
@@ -338,7 +347,7 @@ void RestServer::parse_request() {
         if (match_index != NO_MATCH && request.length == 1) { 
 
 			// debug code
-			if (debug_code) debug_log.println("root request received");
+			if (debug_code) debug_log.println(F("root request received"));
 			
 			for (int i = 0; i < int(resources_count); i++) resources[i].get = true;				
 			server_state = PROCESS;
