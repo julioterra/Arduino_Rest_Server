@@ -628,7 +628,7 @@ void RestServer::print_json(Stream &_client) {
 }
 
 void RestServer::print_resource_description(Stream &_client) {
-	print_flash_string(PSTR("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"), _client);
+	print_flash_string(PSTR("HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n\r\n"), _client);
 
 	print_flash_string(PSTR("[\r\n"), _client); 
 	for(byte i = 0; i < int(resources_count); i++) {
